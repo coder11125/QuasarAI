@@ -6,7 +6,7 @@ Your personal AI assistant — runs straight from your browser, no installs requ
 
 ## What is Quasar AI?
 
-Quasar AI is a fast, clean AI chat app. You can use it on your computer, share it with friends, or host it online — all from a single file.
+Quasar AI is a fast, clean AI chat app. You can use it on your computer, or share it with friends — all from a single website.
 
 ---
 
@@ -21,7 +21,7 @@ You'll need an API key from an AI provider. A few free options:
 Sign up, create an API key, and copy it.
 
 ### Step 2 — Open the app
-Open `index.html` in your browser (Chrome or Edge recommended).
+Open `coder11125.github.io/QuasarAI` in your browser (Chrome or Edge recommended).
 
 ### Step 3 — Add your key
 1. Click the **⚙️ Settings** button in the top right
