@@ -1,13 +1,13 @@
 # ***🚀 The 45-Minute Build:*** How Quasar AI Was Created
 
-This project wasn't built over weeks—it was a 45-minute sprint to create a professional, privacy-first AI assistant. Here is the "behind the scenes" of the development process.
+This project wasn't built over weeks—it was a 45-minute sprint to create a professional, privacy-first AI assistant (for v1 pre-release). Here is the "behind the scenes" of the development process.
 
 
 ## ***🛠️ The Tech Stack***
 
 •Engine: Vanilla JavaScript (ES6+)
 
-•Styling: Modern CSS3 with a focus on "SaaS-style" clean UI.
+•Styling: Modern CSS3 with a focus on clean UI.
 
 •Storage: Browser localStorage (No database needed!).
 
@@ -29,7 +29,7 @@ This project wasn't built over weeks—it was a 45-minute sprint to create a pro
 ## ***🤖 The AI Prompting Strategy***
 I didn't just ask for "an AI app." I used iterative prompting.
 The Master Prompt (og. somewhat like this):
-"Build a single-file HTML/JS AI assistant with a clean, modern UI. Use a 'Settings' gear icon to handle API keys via localStorage. Include a system prompt editor and 4 voice options (Aria, Nova, Sage, Lyra). The design should look like a professional SaaS product."
+"Build a single-file HTML/JS AI assistant with a clean, modern UI. Use a 'Settings' gear icon to handle API keys via localStorage. Include a system prompt editor and 4 voice options (Aria, Nova, Sage, Lyra). The design should look like a professional product."
 
 
 ## ***💡 Lessons Learned***
