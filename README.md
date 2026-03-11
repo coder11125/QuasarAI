@@ -51,7 +51,7 @@ Yes. Your API key and chat history are stored only on **your device** in your br
 
 ## Sharing with Others
 
-You can share the `index.html` file with anyone. Each person will need to add their own API key — yours stays on your device only.
+You can share the website with anyone. Each person will need to add their own API key — yours stays on your device only.
 
 ---
 
