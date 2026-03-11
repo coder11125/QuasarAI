@@ -13,10 +13,10 @@ Quasar AI is a fast, clean AI chat app. You can use it on your computer, or shar
 ## How to Use It
 
 ### Step 1 — Get an API key
-You'll need an API key from an AI provider. A few free options:
-- [Groq](https://console.groq.com) — free tier, very fast
-- [OpenAI](https://platform.openai.com) — GPT models
-- [Google AI Studio](https://aistudio.google.com) — Gemini models
+You'll need an API key from an AI provider. A few options include:
+- [Groq](https://console.groq.com) — Vast API provider
+- [OpenAI](https://platform.openai.com) — OpenAI models
+- [Google AI Studio](https://aistudio.google.com) — Google Deepmind models
 
 Sign up, create an API key, and copy it.
 
