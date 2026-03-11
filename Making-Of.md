@@ -1,6 +1,6 @@
 # ***🚀 The 45-Minute Build:*** How Quasar AI Was Created
 
-This project wasn't built over weeks—it was a 1-hour sprint to create a professional, privacy-first AI assistant (for v1 pre-release). Here is the "behind the scenes" of the development process.
+This project wasn't built over weeks—it was a 1-hour sprint to create a professional, privacy-first AI assistant (for v1). Here is the "behind the scenes" of the development process.
 
 
 ## ***🛠️ The Tech Stack***
