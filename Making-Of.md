@@ -22,7 +22,7 @@ This project wasn't built over weeks—it was a 1-hour sprint to create a profes
 
 30-40 min: Polishing. Added the "Suggestion Pills" and ensured that the API call requests were handled perfectly.
 
-40-60 min: New ideas. Gettting more ideas, which were neccesary, I added powerful features, all without damaging the code
+40-60 min: New ideas. Getting more ideas, which were necessary, I added powerful features, all without damaging the code
 
 
 
