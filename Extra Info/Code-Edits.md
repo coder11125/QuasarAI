@@ -31,3 +31,5 @@
 •Updated memory storage for AppWrite Cloud.
 
 •These above features will come in use when using various devices with a single account.
+
+•Now you can fetch and select the models available for your API keys from **only** Groq, OpenAI, or Anthropic. More API providers will be added in future
