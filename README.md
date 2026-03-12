@@ -21,7 +21,7 @@ You'll need an API key from an AI provider. The **only** options (for now) inclu
 Sign up, create an API key, and copy it.
 
 ### Step 2 — Open the app
-Open `coder11125.github.io/QuasarAI` in your browser (Chrome or Edge recommended).
+Open `coder11125.github.io/QuasarAI-BYOK` in your browser (Chrome or Edge recommended).
 
 ### Step 3 — Add your key
 1. Click the **⚙️ Settings** button in the top right
