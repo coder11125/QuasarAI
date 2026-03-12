@@ -20,3 +20,5 @@
 
 
 •Added support for mobile phones on web browsers
+
+•Added core features for mobile phone on web browser
