@@ -1177,7 +1177,7 @@ async function fetchModels() {
   };
 
   const filters = {
-    groq: m => !m.includes('whisper') && !m.includes('distil') && !m.includes('tts'),
+    groq: m => !m.includes('whisper') && !m.includes('distil') && !m.includes('guard'),
     openai: m => m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3'),
     anthropic: () => true
   };
