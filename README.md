@@ -73,3 +73,5 @@ Quasar AI (BYOK Edition) v1.3 (Pre-release)
 **Note 2:** AI can hallucinate. Check important info
 
 **Note 3:** Answers may vary based on API key
+
+**Note 4:** Contributors are advised to fork and commit to the code in any way they can. All help accepted. Please check out the contribution guide.
