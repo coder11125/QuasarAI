@@ -46,7 +46,7 @@ That's it — you're ready to chat!
 
 ## Is My Data Private?
 
-Mostly, yes. Your API key and chat history are stored only on **AppWrite Cloud** in your browser. However, we are having strict rules on data privacy. We will try to update the privacy implementations few times an update
+Mostly, yes. Your API key and chat history are stored only on **AppWrite Cloud**. However, we are having strict rules on data privacy. We will try to update the privacy implementations few times an update
 
 ---
 
