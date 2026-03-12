@@ -40,13 +40,13 @@ That's it — you're ready to chat!
 - 🌙 **Dark & Light mode** — switches automatically based on your browser's theme
 - 💾 **Saves your chats** — all conversations are stored on your device
 - 📋 **Copy & export** — copy any message or download a full chat
-- 📱 **Now runs on your phone's web browser** - get the Quasar experience on your phone
+- 📱 **Now runs on your phone's web browser** - get the Quasar experience on your phone & load you chats via your registered account
 
 ---
 
 ## Is My Data Private?
 
-Yes. Your API key and chat history are stored only on **your device** in your browser. Nothing is sent to anyone except the AI when you send a message. If someone else uses the app, they have their own completely separate storage.
+Mostly, yes. Your API key and chat history are stored only on **AppWrite Cloud** in your browser. However, we are having strict rules on data privacy. We will try to update the privacy implementations few times an update
 
 ---
 
