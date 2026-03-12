@@ -475,7 +475,18 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-grad
     <p>Configure your assistant.</p>
     <div class="modal-field">
       <label>API Key</label>
-      <input type="password" id="api-key-input" placeholder="gsk_… / sk-… / sk-ant-…" autocomplete="off" />
+      <div style="display:flex;gap:6px">
+        <input type="password" id="api-key-input" placeholder="gsk_… / sk-… / sk-ant-…" autocomplete="off" style="flex:1" />
+        <button onclick="fetchModels()" id="fetch-models-btn" style="padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:12px;cursor:pointer;white-space:nowrap;transition:background .12s">Fetch Models</button>
+      </div>
+      <div id="provider-badge" style="font-size:11px;color:var(--text-sub);margin-top:4px;opacity:.7"></div>
+    </div>
+    <div class="modal-field" id="model-field">
+      <label>Model</label>
+      <select id="model-select" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:13px;outline:none">
+        <option value="">— fetch models first —</option>
+      </select>
+      <div id="model-status" style="font-size:11px;color:var(--text-sub);margin-top:4px;opacity:.7"></div>
     </div>
     <div class="modal-field">
       <label>System Prompt</label>
@@ -846,16 +857,27 @@ async function send() {
     });
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 1000,
-        stream: true,
-        messages: [{ role: 'system', content: settings.systemPrompt }, ...apiMessages],
-      })
-    });
+    const provider = settings.provider || detectProvider(settings.apiKey) || 'groq';
+    const model = settings.model || 'llama-3.3-70b-versatile';
+    let res;
+    if (provider === 'anthropic') {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model, max_tokens: 1000, stream: true, system: settings.systemPrompt, messages: apiMessages })
+      });
+    } else {
+      res = await fetch(getProviderEndpoint(provider), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+        body: JSON.stringify({ model, max_tokens: 1000, stream: true, messages: [{ role: 'system', content: settings.systemPrompt }, ...apiMessages] })
+      });
+    }
 
     typingEl.remove();
 
@@ -883,7 +905,12 @@ async function send() {
         if (data === '[DONE]') break;
         try {
           const json = JSON.parse(data);
-          const token = json.choices?.[0]?.delta?.content || '';
+          let token = '';
+          if (provider === 'anthropic') {
+            if (json.type === 'content_block_delta') token = json.delta?.text || '';
+          } else {
+            token = json.choices?.[0]?.delta?.content || '';
+          }
           if (token) { reply += token; bubble.innerHTML = marked.parse(reply); scrollBottom(); }
         } catch(e) {}
       }
@@ -917,13 +944,29 @@ async function retryLast() {
   if (!settings.apiKey) { openSettingsModal(); return; }
   busy = true;
   const typingEl = addTypingIndicator();
+  const provider = settings.provider || detectProvider(settings.apiKey) || 'groq';
+  const model = settings.model || 'llama-3.3-70b-versatile';
   const apiMessages = chat.history.filter(m=>m.role!=='system').map(m=>({role:m.role,content:m.content}));
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1000, stream: true, messages: [{ role: 'system', content: settings.systemPrompt }, ...apiMessages] })
-    });
+    let res;
+    if (provider === 'anthropic') {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model, max_tokens: 1000, stream: true, system: settings.systemPrompt, messages: apiMessages })
+      });
+    } else {
+      res = await fetch(getProviderEndpoint(provider), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+        body: JSON.stringify({ model, max_tokens: 1000, stream: true, messages: [{ role: 'system', content: settings.systemPrompt }, ...apiMessages] })
+      });
+    }
     typingEl.remove();
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -945,7 +988,12 @@ async function retryLast() {
         if (data === '[DONE]') break;
         try {
           const json = JSON.parse(data);
-          const token = json.choices?.[0]?.delta?.content || '';
+          let token = '';
+          if (provider === 'anthropic') {
+            if (json.type === 'content_block_delta') token = json.delta?.text || '';
+          } else {
+            token = json.choices?.[0]?.delta?.content || '';
+          }
           if (token) { reply += token; bubble.innerHTML = marked.parse(reply); scrollBottom(); }
         } catch(e) {}
       }
@@ -1077,9 +1125,120 @@ function exportChat() {
 
 // ── Provider detection ──
 // ── Settings modal ──
+function detectProvider(key) {
+  if (key.startsWith('gsk_')) return 'groq';
+  if (key.startsWith('sk-ant-')) return 'anthropic';
+  if (key.startsWith('sk-')) return 'openai';
+  return null;
+}
+
+const ANTHROPIC_MODELS = [
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001'
+];
+
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile',
+  'llama-3.1-8b-instant',
+  'llama3-70b-8192',
+  'llama3-8b-8192',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it',
+  'gemma-7b-it'
+];
+
+async function fetchModels() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const btn = document.getElementById('fetch-models-btn');
+  const statusEl = document.getElementById('model-status');
+  const badgeEl = document.getElementById('provider-badge');
+  const select = document.getElementById('model-select');
+  if (!key) { statusEl.textContent = 'Enter an API key first.'; return; }
+  const provider = detectProvider(key);
+  if (!provider) { statusEl.textContent = 'Unknown key format.'; return; }
+  badgeEl.textContent = `Provider: ${provider}`;
+  btn.textContent = '…'; btn.disabled = true;
+  statusEl.textContent = 'Fetching…';
+
+  const endpoints = {
+    groq: 'https://api.groq.com/openai/v1/models',
+    openai: 'https://api.openai.com/v1/models',
+    anthropic: null
+  };
+
+  const fallbacks = {
+    groq: GROQ_MODELS,
+    anthropic: ANTHROPIC_MODELS,
+    openai: []
+  };
+
+  const filters = {
+    groq: m => !m.includes('whisper') && !m.includes('distil') && !m.includes('tts'),
+    openai: m => m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3'),
+    anthropic: () => true
+  };
+
+  try {
+    let models = [];
+    if (provider === 'anthropic') {
+      // Anthropic has no public models endpoint
+      models = ANTHROPIC_MODELS;
+      statusEl.textContent = `${models.length} models loaded.`;
+    } else {
+      const res = await fetch(endpoints[provider], {
+        headers: { 'Authorization': `Bearer ${key}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      models = data.data.map(m => m.id).filter(filters[provider]).sort();
+      if (models.length === 0) throw new Error('No models returned');
+      statusEl.textContent = `${models.length} models loaded.`;
+    }
+    select.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+    if (settings.model && models.includes(settings.model)) select.value = settings.model;
+    else select.value = models[0];
+  } catch(err) {
+    // Fall back to hardcoded list
+    const fallback = fallbacks[provider] || [];
+    if (fallback.length > 0) {
+      select.innerHTML = fallback.map(m => `<option value="${m}">${m}</option>`).join('');
+      if (settings.model && fallback.includes(settings.model)) select.value = settings.model;
+      else select.value = fallback[0];
+      statusEl.textContent = `${fallback.length} models loaded (offline list).`;
+    } else {
+      statusEl.textContent = `Error: ${err.message}`;
+    }
+  } finally {
+    btn.textContent = 'Fetch Models'; btn.disabled = false;
+  }
+}
+
+function getProviderEndpoint(provider) {
+  if (provider === 'groq') return 'https://api.groq.com/openai/v1/chat/completions';
+  if (provider === 'openai') return 'https://api.openai.com/v1/chat/completions';
+  if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
+  return 'https://api.groq.com/openai/v1/chat/completions';
+}
+
 function openSettingsModal() {
-  document.getElementById('api-key-input').value = settings.apiKey;
+  const keyInput = document.getElementById('api-key-input');
+  const select = document.getElementById('model-select');
+  const badgeEl = document.getElementById('provider-badge');
+  keyInput.value = settings.apiKey;
   document.getElementById('system-prompt-input').value = settings.systemPrompt;
+  if (settings.provider) badgeEl.textContent = `Provider: ${settings.provider}`;
+  // populate saved model in dropdown
+  if (settings.model) {
+    const existing = select.querySelector(`option[value="${settings.model}"]`);
+    if (!existing) {
+      const opt = document.createElement('option');
+      opt.value = settings.model; opt.textContent = settings.model;
+      select.innerHTML = ''; select.appendChild(opt);
+    }
+    select.value = settings.model;
+  }
   document.getElementById('modal-overlay').classList.add('open');
 }
 function closeModal() {
@@ -1087,7 +1246,10 @@ function closeModal() {
 }
 function handleOverlayClick(e) { if (e.target===document.getElementById('modal-overlay')) closeModal(); }
 function saveSettings() {
-  settings.apiKey = document.getElementById('api-key-input').value.trim();
+  const key = document.getElementById('api-key-input').value.trim();
+  settings.apiKey = key;
+  settings.provider = detectProvider(key) || 'groq';
+  settings.model = document.getElementById('model-select').value || settings.model;
   settings.systemPrompt = document.getElementById('system-prompt-input').value.trim() || settings.systemPrompt;
   saveState(); closeModal(); showToast('Settings saved');
 }
