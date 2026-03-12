@@ -16,7 +16,7 @@ Quasar AI is a fast, clean AI chat app. You can use it on your computer, or shar
 You'll need an API key from an AI provider. The **only** options (for now) include:
 - [Groq](https://console.groq.com) — Vast API provider
 - [OpenAI](https://platform.openai.com) — OpenAI models
-- [Anthropic] (https://console.anthropic.com) — Anthropic models
+- Anthropic (https://console.anthropic.com) — Anthropic models
 
 Sign up, create an API key, and copy it.
 
