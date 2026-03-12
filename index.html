@@ -229,32 +229,23 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-grad
   #main{width:100%;min-width:0}
 
   /* Titlebar */
-  #titlebar{padding:0 10px;height:50px;padding-top:env(safe-area-inset-top)}
-  #chat-title{font-size:13px}
+  #titlebar{padding:0 12px;height:52px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  #toggle-sidebar{display:none}
+  #chat-title{font-size:14px;font-weight:600;color:var(--text)}
+  #mobile-new-chat-btn{display:flex !important}
+  #mobile-chats-btn{display:flex !important}
 
   /* Stream */
   #stream{padding:14px 10px 8px;gap:12px}
   #stream>*{max-width:100%}
-
-  /* Messages wider on mobile */
   .msg{max-width:92%}
-
-  /* Empty state */
   #empty{max-width:100%;padding:20px 16px 60px}
   #suggestions{max-width:100%}
   .suggestion{font-size:12px;padding:5px 11px}
-
-  /* Input area */
   #inputarea{padding:8px 10px calc(16px + env(safe-area-inset-bottom))}
   #inputarea-inner{max-width:100%}
   #input{font-size:15px}
-  #mobile-new-chat-btn{display:flex !important}
-  #mobile-chats-btn{display:flex !important}
-
-  /* Bubble pre scrolls on mobile */
   .bubble pre{max-width:calc(92vw - 40px);overflow-x:auto}
-
-  /* Attachment preview smaller */
   .attachment-preview img{max-width:160px;max-height:130px}
 }
 #mobile-new-chat-btn{display:none;width:38px;height:38px;flex-shrink:0;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-sub);cursor:pointer;transition:background .12s,color .12s;margin-right:8px}
