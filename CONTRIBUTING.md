@@ -129,11 +129,10 @@ When adding new features, add them to the relevant section or create a new label
 
 ---
 
-## Planned for v1.4
+## Planned for v1.4 (or later)
 
 - [ ] Google Gemini support
 - [ ] OpenRouter support (one key, 100+ models)
-- [ ] Store all provider keys simultaneously
 - [ ] Code block copy buttons
 - [ ] Rename chat by clicking the title
 
