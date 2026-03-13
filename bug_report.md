@@ -1,6 +1,10 @@
-# 🐛 Bug Report
+# 🐛 Bug Reporting
 
 > **Before reporting:** Please check if the issue has already been reported.
+
+> **Please post it in discussions:** As of now please send bug reports in  
+
+## Please give: 
 
 ### 📝 Description
 A clear and concise description of what the bug is.
@@ -10,8 +14,12 @@ A clear and concise description of what the bug is.
 2. If no changed happened, once clear the browser cache
 3. Remove the third-party links and connect again
 4. Or try another browser
+
+
+Using these ways, you can troubleshoot the bug properly
+
 ### 💡 Expected Behavior
-What should have happened instead.
+What should have happened instead?
 
 ### 🖥 Environment
 - **Browser:** [e.g. Chrome, Edge]
