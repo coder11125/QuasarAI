@@ -1,0 +1,68 @@
+body {
+    background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%);
+    transition: background 0.3s ease, color 0.3s ease;
+}
+.dark body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+.glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.dark .glass-panel {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.8); }
+
+.message-user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+.dark .message-user { background: linear-gradient(135deg, #2563eb, #4f46e5); }
+.message-ai { background: rgba(255, 255, 255, 0.9); color: #1e293b; border: 1px solid rgba(0,0,0,0.05); }
+.dark .message-ai { background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.05); }
+
+.prose pre { background: #1e293b !important; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+.prose code { color: #ec4899; background: rgba(128,128,128,0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; }
+.dark .prose code { color: #f472b6; }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes toastSlide {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.toast-enter { animation: toastSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+.sidebar-container {
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar-collapsed {
+    margin-left: -16rem;
+}
+@media (max-width: 768px) {
+    .sidebar-container { position: absolute; z-index: 50; height: 100%; margin-left: -16rem; }
+    .sidebar-open-mobile { margin-left: 0; }
+}
+
+.tab-btn {
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+.tab-btn.active {
+    border-bottom-color: #3b82f6;
+    color: #3b82f6;
+}
+.dark .tab-btn.active {
+    color: #60a5fa;
+    border-bottom-color: #60a5fa;
+}
+
+textarea::-webkit-scrollbar { width: 4px; }
