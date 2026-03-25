@@ -1,9 +1,9 @@
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
-    'claude-4-5-sonnet-20250219',
-    'claude-4-6-sonnet-20241022',
-    'claude-4-6-haiku-20241022',
-    'claude-4-6-opus-20240229'
+    'claude-3-7-sonnet-20250219',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229'
 ];
 
 // Logos removed as requested
@@ -434,7 +434,7 @@ function updateModelSelector() {
     DOM.modelSelect.innerHTML = '';
     let hasModels = false;
     
-    Object.keys(state.models).forEach(provKey => {
+    Object.keys(state.models).forEach((provKey, index) => {
         const provModels = state.models[provKey];
         if (provModels && provModels.length > 0) {
             hasModels = true;

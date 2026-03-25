@@ -66,3 +66,35 @@ body {
 }
 
 textarea::-webkit-scrollbar { width: 4px; }
+
+/* Horizontal Model Selector */
+#modelSelect {
+    /* Custom scrollbar for horizontal scrolling */
+    scrollbar-width: thin;
+}
+
+#modelSelect optgroup {
+    font-weight: 600;
+    color: #3b82f6;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.dark #modelSelect optgroup {
+    color: #60a5fa;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Style for option items with separators */
+#modelSelect option {
+    padding: 0.5rem;
+    border-right: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+#modelSelect option:last-of-type {
+    border-right: none;
+}
+
+.dark #modelSelect option {
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
