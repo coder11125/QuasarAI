@@ -1,9 +1,9 @@
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
-    'claude-3-7-sonnet-20250219',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229'
+    'claude-4-5-sonnet-20250219',
+    'claude-4-6-sonnet-20241022',
+    'claude-4-6-haiku-20241022',
+    'claude-4-6-opus-20240229'
 ];
 
 // Logos removed as requested
@@ -272,7 +272,7 @@ function appendMessageUI(role, text, attachment = null) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in`;
+    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
     
     const bubble = document.createElement('div');
     bubble.className = `max-w-[90%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm ${role === 'user' ? 'message-user rounded-br-sm' : 'message-ai rounded-bl-sm'}`;
@@ -290,7 +290,31 @@ function appendMessageUI(role, text, attachment = null) {
     }
 
     bubble.innerHTML = contentHtml;
+    bubble.setAttribute('data-message-text', text);
     wrapper.appendChild(bubble);
+
+    // Add copy button
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'flex items-start opacity-0 group-hover:opacity-100 transition-opacity pt-1';
+    
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
+    copyBtn.title = 'Copy message';
+    copyBtn.innerHTML = '<i class="fas fa-copy text-sm"></i>';
+    copyBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text).then(() => {
+            copyBtn.innerHTML = '<i class="fas fa-check text-sm text-emerald-500"></i>';
+            setTimeout(() => {
+                copyBtn.innerHTML = '<i class="fas fa-copy text-sm"></i>';
+            }, 2000);
+        }).catch(() => {
+            showToast('Failed to copy message');
+        });
+    };
+    
+    buttonContainer.appendChild(copyBtn);
+    wrapper.appendChild(buttonContainer);
     DOM.chatWindow.appendChild(wrapper);
     scrollToBottom();
     return wrapper;
