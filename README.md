@@ -55,7 +55,7 @@ Your data never leaves your device:
 
 ## 🚀 Getting Started
 
-1. Open [Quasar AI] (https://quasar-ai-two.vercel.app/)
+1. Open [Quasar AI](https://quasar-ai-two.vercel.app/)
    ```
 
 2. **Get API Keys (If not there already with you):**
