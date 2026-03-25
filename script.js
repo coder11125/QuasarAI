@@ -151,11 +151,34 @@ function validateInput() {
     DOM.sendBtn.disabled = !( (hasText || hasFile) && hasModel );
 }
 
-DOM.modelSelect.addEventListener('change', (e) => {
-    state.selectedModel = e.target.value;
+// Custom Model Dropdown Handler
+const DOM_modelDropdownBtn = document.getElementById('modelDropdownBtn');
+const DOM_modelDropdownMenu = document.getElementById('modelDropdownMenu');
+const DOM_modelDropdownLabel = document.getElementById('modelDropdownLabel');
+
+DOM_modelDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    DOM_modelDropdownMenu.classList.toggle('hidden');
+});
+
+document.addEventListener('click', () => {
+    DOM_modelDropdownMenu.classList.add('hidden');
+});
+
+DOM_modelDropdownMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
+
+// Model selection from custom dropdown
+function selectModel(providerKey, modelId) {
+    state.selectedModel = `${providerKey}|${modelId}`;
+    const modelName = modelId.split('/').pop();
+    DOM_modelDropdownLabel.textContent = modelName;
+    DOM_modelDropdownMenu.classList.add('hidden');
+    DOM.modelSelect.value = state.selectedModel;
     saveState();
     validateInput();
-});
+}
 
 // --- 4. CHAT MANAGEMENT ---
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
@@ -432,35 +455,64 @@ async function saveAndFetch(provider) {
 
 function updateModelSelector() {
     DOM.modelSelect.innerHTML = '';
+    DOM_modelDropdownMenu.innerHTML = '';
     let hasModels = false;
     
-    Object.keys(state.models).forEach((provKey, index) => {
+    Object.keys(state.models).forEach((provKey) => {
         const provModels = state.models[provKey];
         if (provModels && provModels.length > 0) {
             hasModels = true;
-            const group = document.createElement('optgroup');
-            group.label = DEFAULT_PROVIDERS[provKey].name;
             
-            provModels.forEach(m => {
+            // Create provider group
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'model-provider-group';
+            
+            // Provider name label
+            const providerLabel = document.createElement('span');
+            providerLabel.className = 'model-provider-name';
+            providerLabel.textContent = DEFAULT_PROVIDERS[provKey].name;
+            groupDiv.appendChild(providerLabel);
+            
+            // Add models for this provider
+            provModels.forEach((m) => {
+                const modelBtn = document.createElement('button');
+                modelBtn.type = 'button';
+                modelBtn.className = 'model-item';
+                modelBtn.textContent = m.split('/').pop(); // Show only last part of model name
+                modelBtn.onclick = (e) => {
+                    e.preventDefault();
+                    selectModel(provKey, m);
+                    updateModelSelector(); // Refresh UI to show active state
+                };
+                groupDiv.appendChild(modelBtn);
+                
+                // Also add to hidden select
                 const option = document.createElement('option');
                 option.value = `${provKey}|${m}`;
                 option.textContent = m;
-                group.appendChild(option);
+                DOM.modelSelect.appendChild(option);
             });
-            DOM.modelSelect.appendChild(group);
+            
+            DOM_modelDropdownMenu.appendChild(groupDiv);
         }
     });
 
     if (!hasModels) {
-        DOM.modelSelect.innerHTML = '<option value="">Setup API in Settings</option>';
+        DOM_modelDropdownLabel.textContent = 'Setup API in Settings';
     } else {
-        const exists = Array.from(DOM.modelSelect.options).some(o => o.value === state.selectedModel);
-        if (exists) {
-            DOM.modelSelect.value = state.selectedModel;
-        } else {
-            state.selectedModel = DOM.modelSelect.options[0].value;
-            DOM.modelSelect.value = state.selectedModel;
-            saveState();
+        // Set active state on current model
+        const activeButtons = DOM_modelDropdownMenu.querySelectorAll('.model-item');
+        activeButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (state.selectedModel && btn.textContent === state.selectedModel.split('|')[1].split('/').pop()) {
+                btn.classList.add('active');
+                DOM_modelDropdownLabel.textContent = btn.textContent;
+            }
+        });
+        
+        // If no model selected yet, select the first one
+        if (!state.selectedModel && activeButtons.length > 0) {
+            activeButtons[0].click();
         }
     }
     validateInput();

@@ -67,34 +67,100 @@ body {
 
 textarea::-webkit-scrollbar { width: 4px; }
 
-/* Horizontal Model Selector */
-#modelSelect {
-    /* Custom scrollbar for horizontal scrolling */
+/* Custom Model Selector Dropdown */
+#modelDropdownMenu {
     scrollbar-width: thin;
 }
 
-#modelSelect optgroup {
-    font-weight: 600;
-    color: #3b82f6;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(156, 163, 175, 0.3);
+#modelDropdownMenu::-webkit-scrollbar {
+    width: 6px;
 }
 
-.dark #modelSelect optgroup {
-    color: #60a5fa;
+#modelDropdownMenu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#modelDropdownMenu::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 10px;
+}
+
+.dark #modelDropdownMenu::-webkit-scrollbar-thumb {
+    background: rgba(71, 85, 105, 0.8);
+}
+
+/* Provider Groups */
+.model-provider-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(156, 163, 175, 0.2);
+}
+
+.dark .model-provider-group {
     border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Style for option items with separators */
-#modelSelect option {
-    padding: 0.5rem;
-    border-right: 1px solid rgba(156, 163, 175, 0.3);
+.model-provider-group:last-child {
+    border-bottom: none;
 }
 
-#modelSelect option:last-of-type {
+.model-provider-name {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-slate-500;
+    dark:text-slate-400;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-right: 0.75rem;
+    padding-right: 0.75rem;
+    border-right: 1px solid rgba(156, 163, 175, 0.3);
+    white-space: nowrap;
+}
+
+.dark .model-provider-name {
+    color: #94a3b8;
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Individual Model Items */
+.model-item {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-right: 1px solid rgba(156, 163, 175, 0.2);
+    transition: background-color 0.15s ease;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    color: #1e293b;
+}
+
+.dark .model-item {
+    color: #e2e8f0;
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+.model-item:last-child {
     border-right: none;
 }
 
-.dark #modelSelect option {
-    border-right-color: rgba(255, 255, 255, 0.1);
+.model-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.dark .model-item:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+.model-item.active {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.dark .model-item.active {
+    background-color: rgba(59, 130, 246, 0.25);
+    color: #60a5fa;
 }
