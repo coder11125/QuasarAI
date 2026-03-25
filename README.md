@@ -16,7 +16,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Groq** — Fastest inference for LLaMA 2, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
 
-Switch between providers with one click. Use different models in different conversations. Compare responses side-by-side.
+Switch between providers with one click. Use different models in different conversations.
 
 ### 🔒 **100% Privacy-First**
 Your data never leaves your device:
