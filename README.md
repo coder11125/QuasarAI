@@ -136,12 +136,12 @@ See each provider's documentation for current limits.
 
 ## 🔐 Security & Privacy
 
-### What We Store Locally
+### What You Store Locally
 ✅ API keys (encrypted in localStorage)  
 ✅ Chat messages  
 ✅ User preferences (theme, model selection)  
 
-### What We DON'T Send Anywhere
+### What We DON'T Send Anywhere or Use
 ❌ API keys are never sent to us  
 ❌ Chat history never reaches our servers  
 ❌ No analytics, tracking, or telemetry  
