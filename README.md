@@ -46,7 +46,7 @@ Your data never leaves your device:
 
 ### ⚡ **Developer-Friendly**
 - **Zero Backend Required** — Pure client-side, no server needed
-- **Drop-In Deployment** — Deploy to GitHub Pages, Netlify, Vercel in seconds
+- **Drop-In Deployment** — Push to GitHub and it gets deployed by Vercel within 5 minutes
 - **No Build Step** — Works as-is; uses CDN-hosted libraries
 - **Open Source** — MIT license; fork and customize freely
 - **Well-Organized Code** — Clear separation of concerns, easy to extend
