@@ -58,11 +58,11 @@ Your data never leaves your device:
 1. Open [Quasar AI](https://quasar-ai-two.vercel.app/)
 
 2. **Get API Keys (If not there already with you):**
-   - [Google Gemini API](https://aistudio.google.com/app/apikey) — Free tier available
-   - [OpenAI API](https://platform.openai.com/api-keys) — Paid, excellent models
-   - [Anthropic Claude API](https://console.anthropic.com/settings/keys) — Paid, state-of-the-art reasoning
-   - [Groq API](https://console.groq.com/keys) — Free tier, blazing fast
-   - [OpenRouter](https://openrouter.ai/keys) — Access to 200+ models, pay-as-you-go
+   - [Google Gemini API](https://aistudio.google.com/app/apikey) — Free tier available, DeepMind models
+   - [OpenAI API](https://platform.openai.com/api-keys) — Free tier available, GPT models
+   - [Anthropic Claude API](https://console.anthropic.com/settings/keys) — Pay-as-you-go, state-of-the-art reasoning
+   - [Groq API](https://console.groq.com/keys) — Free tier available, blazing fast inference
+   - [OpenRouter](https://openrouter.ai/keys) — Access to 200+ models, pay-as-you-go or free tier
 
 3. **Add API Keys in Settings:**
    - Open Quasar AI
