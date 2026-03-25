@@ -176,7 +176,7 @@ We welcome contributions! Here's how:
 
 ## License
 
-MIT License © 2026 Quasar AI
+MIT License 2026 Quasar AI
 
 Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
 
