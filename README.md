@@ -13,7 +13,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Google Gemini** — Gemini 2.5 Pro, 2.0 Flash, 1.5 Pro, and more
 - **OpenAI** — GPT-4, GPT-4 Turbo, GPT-3.5-Turbo
 - **Anthropic Claude** — Claude 3.7 Sonnet, 3.5 Sonnet, 3.5 Haiku, 3 Opus
-- **Groq** — Fastest inference for LLaMA 2, Mixtral, and more
+- **Groq** — Fastest inference for Llama, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
 
 Switch between providers with one click. Use different models in different conversations.
