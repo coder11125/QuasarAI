@@ -182,7 +182,21 @@ function selectModel(providerKey, modelId) {
     const modelName = modelId.split('/').pop();
     DOM.modelDropdownLabel.textContent = modelName;
     DOM.modelDropdownMenu.classList.add('hidden');
-    DOM.modelSelect.value = state.selectedModel;
+    
+    // Update the hidden select element
+    if (DOM.modelSelect) DOM.modelSelect.value = state.selectedModel;
+    
+    // Update active state in the custom dropdown menu without full re-render
+    const allItems = DOM.modelDropdownMenu.querySelectorAll('.model-item');
+    allItems.forEach(item => {
+        const itemFullId = item.getAttribute('data-model-id');
+        if (itemFullId === state.selectedModel) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
     saveState();
     validateInput();
 }
@@ -485,43 +499,52 @@ async function saveAndFetch(provider) {
 }
 
 function updateModelSelector() {
-    DOM.modelSelect.innerHTML = '';
-    if (!DOM.modelDropdownMenu) return;
+    if (!DOM.modelDropdownMenu || !DOM.modelSelect) return;
     
+    DOM.modelSelect.innerHTML = '';
     let hasModels = false;
-    const fragment = document.createDocumentFragment(); // Batch DOM updates
+    const fragment = document.createDocumentFragment();
     
     Object.keys(state.models).forEach((provKey) => {
         const provModels = state.models[provKey];
         if (provModels && provModels.length > 0) {
             hasModels = true;
             
-            // Create provider group
             const groupDiv = document.createElement('div');
             groupDiv.className = 'model-provider-group';
             
-            // Provider name label
-            const providerLabel = document.createElement('span');
+            const providerLabel = document.createElement('div');
             providerLabel.className = 'model-provider-name';
-            providerLabel.textContent = DEFAULT_PROVIDERS[provKey].name;
+            providerLabel.innerHTML = `<i class="fas fa-microchip mr-2 opacity-50"></i>${DEFAULT_PROVIDERS[provKey].name}`;
             groupDiv.appendChild(providerLabel);
             
-            // Add models for this provider
             provModels.forEach((m) => {
+                const modelFullId = `${provKey}|${m}`;
+                const modelShortName = m.split('/').pop();
+                
                 const modelBtn = document.createElement('button');
                 modelBtn.type = 'button';
                 modelBtn.className = 'model-item';
-                modelBtn.textContent = m.split('/').pop();
+                modelBtn.setAttribute('data-model-id', modelFullId);
+                if (state.selectedModel === modelFullId) {
+                    modelBtn.classList.add('active');
+                    DOM.modelDropdownLabel.textContent = modelShortName;
+                }
+                
+                modelBtn.innerHTML = `
+                    <span class="model-name-text">${modelShortName}</span>
+                    <i class="fas fa-check selected-icon ml-auto opacity-0"></i>
+                `;
+                
                 modelBtn.onclick = (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     selectModel(provKey, m);
-                    updateModelSelector();
                 };
                 groupDiv.appendChild(modelBtn);
                 
-                // Add to hidden select
                 const option = document.createElement('option');
-                option.value = `${provKey}|${m}`;
+                option.value = modelFullId;
                 option.textContent = m;
                 DOM.modelSelect.appendChild(option);
             });
@@ -530,26 +553,25 @@ function updateModelSelector() {
         }
     });
 
-    // Single DOM update
     DOM.modelDropdownMenu.innerHTML = '';
-    DOM.modelDropdownMenu.appendChild(fragment);
+    if (hasModels) {
+        DOM.modelDropdownMenu.appendChild(fragment);
+    } else {
+        DOM.modelDropdownMenu.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">No models available. Connect an API in Settings.</div>';
+    }
 
     if (!hasModels) {
         DOM.modelDropdownLabel.textContent = 'Setup API in Settings';
+    } else if (!state.selectedModel) {
+        // Auto-select first available model
+        const firstProv = Object.keys(state.models).find(k => state.models[k].length > 0);
+        if (firstProv) selectModel(firstProv, state.models[firstProv][0]);
     } else {
-        const activeButtons = DOM.modelDropdownMenu.querySelectorAll('.model-item');
-        activeButtons.forEach(btn => {
-            btn.classList.remove('active');
-            if (state.selectedModel && btn.textContent === state.selectedModel.split('|')[1].split('/').pop()) {
-                btn.classList.add('active');
-                DOM.modelDropdownLabel.textContent = btn.textContent;
-            }
-        });
-        
-        if (!state.selectedModel && activeButtons.length > 0) {
-            activeButtons[0].click();
-        }
+        // Ensure label is correct even if state was loaded from storage
+        const [pk, mid] = state.selectedModel.split('|');
+        DOM.modelDropdownLabel.textContent = mid.split('/').pop();
     }
+    
     validateInput();
 }
 
