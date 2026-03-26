@@ -35,7 +35,7 @@ There is intentionally no build pipeline. Everything runs directly in the browse
 ## Getting Started
 
 1. **Open in browser**
-   Open (QuasarAI)[https://quasar-ai-two.vercel.app]
+   Open [QuasarAI](https://quasar-ai-two.vercel.app)
 
 2. **Add an API key** via the Settings panel (⚙️) to test with a real model.
 
