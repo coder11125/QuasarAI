@@ -14,6 +14,48 @@ const DEFAULT_PROVIDERS = {
     openrouter: { name: "OpenRouter", url: "https://openrouter.ai/api/v1/models", link: "https://openrouter.ai/keys" }
 };
 
+// Language icons map
+const LANG_ICONS = {
+    html: 'fab fa-html5',
+    css: 'fab fa-css3-alt',
+    javascript: 'fab fa-js-square',
+    js: 'fab fa-js-square',
+    typescript: 'fab fa-js-square',
+    ts: 'fab fa-js-square',
+    python: 'fab fa-python',
+    py: 'fab fa-python',
+    bash: 'fas fa-terminal',
+    sh: 'fas fa-terminal',
+    shell: 'fas fa-terminal',
+    json: 'fas fa-code',
+    sql: 'fas fa-database',
+    java: 'fab fa-java',
+    cpp: 'fas fa-code',
+    c: 'fas fa-code',
+    rust: 'fas fa-code',
+    go: 'fas fa-code',
+    php: 'fab fa-php',
+    ruby: 'fas fa-gem',
+    swift: 'fab fa-swift',
+    kotlin: 'fas fa-code',
+    markdown: 'fab fa-markdown',
+    md: 'fab fa-markdown',
+    xml: 'fas fa-code',
+    yaml: 'fas fa-cog',
+    yml: 'fas fa-cog',
+};
+
+// Languages that support live preview
+const PREVIEWABLE_LANGS = ['html', 'svg'];
+
+const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rules strictly:
+1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag. No exceptions.
+   - Use \`\`\`html for HTML, \`\`\`python for Python, \`\`\`javascript for JS, \`\`\`css for CSS, etc.
+   - Even single-line code snippets must use fenced code blocks, never inline backticks for code output.
+   - If a response contains multiple languages, each block must be separately fenced with its own language tag.
+2. Never output raw unwrapped code outside of a fenced block.
+3. Be concise, clear, and helpful.`;
+
 let state = {
     keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
     models: { google: [], openai: [], anthropic: [], groq: [], openrouter: [] },
@@ -106,6 +148,7 @@ function init() {
 
     if(state.selectedModel) DOM.modelSelect.value = state.selectedModel;
     setupSpeechRecognition();
+    setupArtifactModal();
 }
 
 function saveState() {
@@ -183,10 +226,8 @@ function selectModel(providerKey, modelId) {
     DOM.modelDropdownLabel.textContent = modelName;
     DOM.modelDropdownMenu.classList.add('hidden');
     
-    // Update the hidden select element
     if (DOM.modelSelect) DOM.modelSelect.value = state.selectedModel;
     
-    // Update active state in the custom dropdown menu without full re-render
     const allItems = DOM.modelDropdownMenu.querySelectorAll('.model-item');
     allItems.forEach(item => {
         const itemFullId = item.getAttribute('data-model-id');
@@ -283,7 +324,6 @@ function renderChatList() {
         fragment.appendChild(div);
     });
     
-    // Single DOM update
     DOM.chatList.innerHTML = '';
     DOM.chatList.appendChild(fragment);
 }
@@ -314,6 +354,307 @@ function scrollToBottom() {
     DOM.chatWindow.scrollTo({ top: DOM.chatWindow.scrollHeight, behavior: 'smooth' });
 }
 
+// --- 6. ARTIFACT / CODE BLOCK RENDERING ---
+
+/**
+ * Parse the AI response text and extract code blocks with their language and content.
+ * Returns an array of segments: { type: 'text'|'code', content, lang }
+ */
+function parseMessageSegments(text) {
+    const segments = [];
+    // Match fenced code blocks: ```lang\ncode\n```
+    const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        // Text before this code block
+        if (match.index > lastIndex) {
+            const textBefore = text.slice(lastIndex, match.index).trim();
+            if (textBefore) segments.push({ type: 'text', content: textBefore });
+        }
+        segments.push({ type: 'code', lang: (match[1] || 'plaintext').toLowerCase(), content: match[2] });
+        lastIndex = match.index + match[0].length;
+    }
+
+    // Remaining text after the last code block
+    if (lastIndex < text.length) {
+        const textAfter = text.slice(lastIndex).trim();
+        if (textAfter) segments.push({ type: 'text', content: textAfter });
+    }
+
+    // If no code blocks found, just return as text
+    if (segments.length === 0) {
+        segments.push({ type: 'text', content: text });
+    }
+
+    return segments;
+}
+
+/**
+ * Build an interactive artifact block (like Claude's artifacts panel)
+ */
+function buildArtifactBlock(lang, code) {
+    const blockId = 'artifact-' + generateId();
+    const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
+    const icon = LANG_ICONS[lang] || 'fas fa-code';
+    const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'artifact-block';
+    wrapper.id = blockId;
+
+    // Escape code for display in <pre>
+    const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    wrapper.innerHTML = `
+        <div class="artifact-header">
+            <div class="artifact-header-left">
+                <i class="${icon} artifact-lang-icon"></i>
+                <span class="artifact-lang-label">${langLabel}</span>
+            </div>
+            <div class="artifact-header-right">
+                ${isPreviewable ? `
+                <div class="artifact-tabs">
+                    <button class="artifact-tab active" onclick="switchArtifactTab('${blockId}', 'code', this)">
+                        <i class="fas fa-code"></i> Code
+                    </button>
+                    <button class="artifact-tab" onclick="switchArtifactTab('${blockId}', 'preview', this)">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                </div>
+                ` : ''}
+                <button class="artifact-action-btn" onclick="copyArtifactCode('${blockId}')" title="Copy code">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="artifact-action-btn" onclick="openArtifactFullscreen('${blockId}')" title="Open fullscreen">
+                    <i class="fas fa-expand-alt"></i>
+                </button>
+            </div>
+        </div>
+        <div class="artifact-body">
+            <div class="artifact-code-pane" id="${blockId}-code">
+                <pre class="artifact-pre"><code class="artifact-code lang-${lang}">${escapedCode}</code></pre>
+            </div>
+            ${isPreviewable ? `
+            <div class="artifact-preview-pane hidden" id="${blockId}-preview">
+                <iframe class="artifact-iframe" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe>
+            </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Store code on element for later use
+    wrapper.dataset.code = code;
+    wrapper.dataset.lang = lang;
+
+    return wrapper;
+}
+
+function switchArtifactTab(blockId, tab, btn) {
+    const block = document.getElementById(blockId);
+    if (!block) return;
+
+    // Update tab buttons
+    block.querySelectorAll('.artifact-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    const codePane = document.getElementById(`${blockId}-code`);
+    const previewPane = document.getElementById(`${blockId}-preview`);
+
+    if (tab === 'code') {
+        codePane?.classList.remove('hidden');
+        previewPane?.classList.add('hidden');
+    } else {
+        codePane?.classList.add('hidden');
+        previewPane?.classList.remove('hidden');
+        // Inject content into iframe
+        if (previewPane) {
+            const iframe = previewPane.querySelector('iframe');
+            if (iframe && !iframe.dataset.loaded) {
+                const code = block.dataset.code;
+                const lang = block.dataset.lang;
+                let html = code;
+                if (lang === 'svg') {
+                    html = `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">${code}</body></html>`;
+                }
+                iframe.srcdoc = html;
+                iframe.dataset.loaded = '1';
+            }
+        }
+    }
+}
+
+function copyArtifactCode(blockId) {
+    const block = document.getElementById(blockId);
+    if (!block) return;
+    const code = block.dataset.code;
+    const btn = block.querySelector('[title="Copy code"]');
+
+    navigator.clipboard.writeText(code).then(() => {
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fas fa-copy"></i>';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+        showToast('Code copied!', 'success');
+    }).catch(() => {
+        showToast('Failed to copy code');
+    });
+}
+
+function openArtifactFullscreen(blockId) {
+    const block = document.getElementById(blockId);
+    if (!block) return;
+    const code = block.dataset.code;
+    const lang = block.dataset.lang;
+    showArtifactModal(code, lang);
+}
+
+// --- 7. ARTIFACT MODAL ---
+function setupArtifactModal() {
+    // Modal is injected once
+    if (document.getElementById('artifactModal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'artifactModal';
+    modal.className = 'artifact-modal hidden';
+    modal.innerHTML = `
+        <div class="artifact-modal-backdrop" onclick="closeArtifactModal()"></div>
+        <div class="artifact-modal-panel">
+            <div class="artifact-modal-header">
+                <div class="artifact-modal-title">
+                    <i class="fas fa-code" id="artifactModalIcon"></i>
+                    <span id="artifactModalLang">Code</span>
+                </div>
+                <div class="artifact-modal-tabs" id="artifactModalTabs"></div>
+                <div class="artifact-modal-actions">
+                    <button class="artifact-action-btn" onclick="copyArtifactModalCode()" title="Copy code" id="artifactModalCopyBtn">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="artifact-action-btn" onclick="closeArtifactModal()" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="artifact-modal-body">
+                <div id="artifactModalCodePane">
+                    <pre class="artifact-pre h-full"><code id="artifactModalCode" class="artifact-code"></code></pre>
+                </div>
+                <div id="artifactModalPreviewPane" class="hidden h-full">
+                    <iframe id="artifactModalIframe" class="artifact-iframe h-full" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // ESC to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeArtifactModal();
+    });
+}
+
+let _modalCode = '';
+let _modalLang = '';
+
+function showArtifactModal(code, lang) {
+    _modalCode = code;
+    _modalLang = lang;
+
+    const modal = document.getElementById('artifactModal');
+    const icon = document.getElementById('artifactModalIcon');
+    const langLabel = document.getElementById('artifactModalLang');
+    const codeEl = document.getElementById('artifactModalCode');
+    const tabs = document.getElementById('artifactModalTabs');
+    const codePane = document.getElementById('artifactModalCodePane');
+    const previewPane = document.getElementById('artifactModalPreviewPane');
+    const iframe = document.getElementById('artifactModalIframe');
+
+    const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
+
+    icon.className = LANG_ICONS[lang] || 'fas fa-code';
+    langLabel.textContent = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
+
+    const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    codeEl.innerHTML = escapedCode;
+    codeEl.className = `artifact-code lang-${lang}`;
+
+    // Reset panes
+    codePane.classList.remove('hidden');
+    previewPane.classList.add('hidden');
+    iframe.removeAttribute('srcdoc');
+    iframe.removeAttribute('data-loaded');
+
+    // Tabs
+    if (isPreviewable) {
+        tabs.innerHTML = `
+            <button class="artifact-tab active" onclick="switchModalTab('code', this)"><i class="fas fa-code"></i> Code</button>
+            <button class="artifact-tab" onclick="switchModalTab('preview', this)"><i class="fas fa-eye"></i> Preview</button>
+        `;
+        tabs.classList.remove('hidden');
+    } else {
+        tabs.innerHTML = '';
+        tabs.classList.add('hidden');
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function switchModalTab(tab, btn) {
+    const tabs = document.getElementById('artifactModalTabs');
+    tabs.querySelectorAll('.artifact-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    const codePane = document.getElementById('artifactModalCodePane');
+    const previewPane = document.getElementById('artifactModalPreviewPane');
+    const iframe = document.getElementById('artifactModalIframe');
+
+    if (tab === 'code') {
+        codePane.classList.remove('hidden');
+        previewPane.classList.add('hidden');
+    } else {
+        codePane.classList.add('hidden');
+        previewPane.classList.remove('hidden');
+        if (!iframe.dataset.loaded) {
+            let html = _modalCode;
+            if (_modalLang === 'svg') {
+                html = `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">${_modalCode}</body></html>`;
+            }
+            iframe.srcdoc = html;
+            iframe.dataset.loaded = '1';
+        }
+    }
+}
+
+function copyArtifactModalCode() {
+    navigator.clipboard.writeText(_modalCode).then(() => {
+        const btn = document.getElementById('artifactModalCopyBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fas fa-copy"></i>';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+        showToast('Code copied!', 'success');
+    }).catch(() => showToast('Failed to copy'));
+}
+
+function closeArtifactModal() {
+    const modal = document.getElementById('artifactModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+// --- 8. MESSAGE UI WITH ARTIFACT BLOCKS ---
 function appendMessageUI(role, text, attachment = null) {
     if (DOM.chatWindow.querySelector('.fa-meteor.animate-pulse')) {
         DOM.chatWindow.innerHTML = '';
@@ -323,39 +664,46 @@ function appendMessageUI(role, text, attachment = null) {
     wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
     
     const bubble = document.createElement('div');
-    bubble.className = `max-w-[90%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm ${role === 'user' ? 'message-user rounded-br-sm' : 'message-ai rounded-bl-sm'}`;
+    bubble.className = `max-w-[90%] md:max-w-[80%] p-4 md:p-5 rounded-2xl shadow-sm ${role === 'user' ? 'message-user rounded-br-sm' : 'message-ai rounded-bl-sm'}`;
     
-    // Build content efficiently
-    let contentHtml = '';
-
     if (attachment) {
-        contentHtml += `<div class="mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20"><img src="${attachment.dataUrl}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy"></div>`;
+        const imgDiv = document.createElement('div');
+        imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
+        imgDiv.innerHTML = `<img src="${attachment.dataUrl}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy">`;
+        bubble.appendChild(imgDiv);
     }
 
     if (role === 'ai') {
-        // Use requestIdleCallback for markdown parsing (non-blocking)
-        const parseMarkdown = () => {
-            try {
-                contentHtml += `<div class="prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed">${marked.parse(text)}</div>`;
-                bubble.innerHTML = contentHtml;
-            } catch (e) {
-                bubble.innerHTML = `<div class="text-sm md:text-base leading-relaxed">${text}</div>`;
+        const segments = parseMessageSegments(text);
+
+        segments.forEach(seg => {
+            if (seg.type === 'text' && seg.content.trim()) {
+                const textDiv = document.createElement('div');
+                textDiv.className = 'prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed';
+                try {
+                    textDiv.innerHTML = marked.parse(seg.content);
+                } catch(e) {
+                    textDiv.textContent = seg.content;
+                }
+                bubble.appendChild(textDiv);
+            } else if (seg.type === 'code') {
+                bubble.classList.add('has-artifact');
+                const artifactEl = buildArtifactBlock(seg.lang, seg.content);
+                bubble.appendChild(artifactEl);
             }
-        };
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(parseMarkdown);
-        } else {
-            parseMarkdown();
-        }
+        });
+
     } else {
-        contentHtml += `<div class="whitespace-pre-wrap text-sm md:text-base leading-relaxed">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
-        bubble.innerHTML = contentHtml;
+        const textDiv = document.createElement('div');
+        textDiv.className = 'whitespace-pre-wrap text-sm md:text-base leading-relaxed';
+        textDiv.textContent = text;
+        bubble.appendChild(textDiv);
     }
 
     bubble.setAttribute('data-message-text', text);
     wrapper.appendChild(bubble);
 
-    // Add copy button
+    // Copy button
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex items-start opacity-0 group-hover:opacity-100 transition-opacity pt-1';
     
@@ -380,14 +728,13 @@ function appendMessageUI(role, text, attachment = null) {
     wrapper.appendChild(buttonContainer);
     DOM.chatWindow.appendChild(wrapper);
     
-    // Debounce scroll
     clearTimeout(appendMessageUI.scrollTimeout);
     appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
     
     return wrapper;
 }
 
-// --- 6. SETTINGS & MODEL FETCHING ---
+// --- 9. SETTINGS & MODEL FETCHING ---
 function openSettings(tabId = 'general') {
     switchTab(tabId);
     renderProviderSettings();
@@ -563,11 +910,9 @@ function updateModelSelector() {
     if (!hasModels) {
         DOM.modelDropdownLabel.textContent = 'Setup API in Settings';
     } else if (!state.selectedModel) {
-        // Auto-select first available model
         const firstProv = Object.keys(state.models).find(k => state.models[k].length > 0);
         if (firstProv) selectModel(firstProv, state.models[firstProv][0]);
     } else {
-        // Ensure label is correct even if state was loaded from storage
         const [pk, mid] = state.selectedModel.split('|');
         DOM.modelDropdownLabel.textContent = mid.split('/').pop();
     }
@@ -575,7 +920,7 @@ function updateModelSelector() {
     validateInput();
 }
 
-// --- 7. FILE & VOICE INPUT ---
+// --- 10. FILE & VOICE INPUT ---
 DOM.fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -612,83 +957,54 @@ function setupSpeechRecognition() {
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
-    recognition.maxAlternatives = 1; // Only get best result, faster
+    recognition.maxAlternatives = 1;
     
     let isRecording = false;
-    let interimTranscript = '';
-    let lastResultIndex = 0;
 
     recognition.onstart = () => {
         isRecording = true;
-        interimTranscript = '';
-        lastResultIndex = 0;
         DOM.voiceBtn.classList.add('text-red-500', 'animate-pulse');
         showToast('🎤 Listening...', 'success');
     };
     
     recognition.onresult = (event) => {
-        // Only process new results (optimization)
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            
             if (event.results[i].isFinal) {
-                // Add final result immediately
                 DOM.userInput.value += (DOM.userInput.value ? ' ' : '') + transcript;
-                lastResultIndex = i + 1;
-            } else {
-                // Show interim without logging (faster)
-                interimTranscript = transcript;
             }
         }
-        
-        // Batch DOM updates
         validateInput();
         DOM.userInput.dispatchEvent(new Event('input'));
     };
 
     recognition.onerror = (event) => {
         const errorMessages = {
-            'no-speech': '❌ No speech detected. Try again.',
+            'no-speech': '❌ No speech detected.',
             'audio-capture': '❌ No microphone found.',
             'network': '❌ Network error.',
             'not-allowed': '❌ Microphone denied.',
-            'bad-grammar': '❌ Grammar error.',
-            'service-not-allowed': '❌ Service not allowed.'
         };
-        const message = errorMessages[event.error] || `❌ Error: ${event.error}`;
-        showToast(message);
+        showToast(errorMessages[event.error] || `❌ Error: ${event.error}`);
         stopRec();
     };
 
-    recognition.onend = () => {
-        stopRec();
-    };
+    recognition.onend = () => stopRec();
 
     function stopRec() {
         isRecording = false;
-        interimTranscript = '';
-        lastResultIndex = 0;
         DOM.voiceBtn.classList.remove('text-red-500', 'animate-pulse');
     }
 
     DOM.voiceBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
-        if (isRecording) {
-            recognition.stop();
-        } else {
-            try {
-                recognition.start();
-            } catch (error) {
-                console.error('Failed to start recognition:', error);
-                showToast('❌ Failed to start microphone');
-            }
-        }
+        if (isRecording) recognition.stop();
+        else { try { recognition.start(); } catch(err) { showToast('❌ Failed to start microphone'); } }
     };
 }
 
-// --- 8. MESSAGE SENDING & API ABSTRACTION ---
+// --- 11. MESSAGE SENDING & API ---
 DOM.chatForm.onsubmit = async (e) => {
     e.preventDefault();
     const text = DOM.userInput.value.trim();
@@ -718,31 +1034,43 @@ DOM.chatForm.onsubmit = async (e) => {
     DOM.userInput.style.height = 'auto';
     DOM.removeAttachmentBtn.click();
     
-    const aiBubble = appendMessageUI('ai', '<span class="flex items-center gap-2"><i class="fas fa-circle-notch fa-spin text-brand-500"></i> Thinking...</span>');
+    // Show thinking indicator
+    const thinkingWrapper = document.createElement('div');
+    thinkingWrapper.className = 'flex w-full justify-start animate-slide-in gap-2';
+    thinkingWrapper.innerHTML = `
+        <div class="max-w-[90%] md:max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+            <span class="flex items-center gap-2 text-sm text-slate-500">
+                <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Thinking...
+            </span>
+        </div>
+    `;
+    DOM.chatWindow.appendChild(thinkingWrapper);
+    scrollToBottom();
     
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history);
         
-        // Update AI bubble with parsed markdown
-        const proseBubble = aiBubble.querySelector('.prose');
-        if (proseBubble) {
-            try {
-                proseBubble.innerHTML = marked.parse(responseText);
-            } catch (e) {
-                proseBubble.innerHTML = `<div>${responseText}</div>`;
-            }
-        }
+        // Remove thinking indicator
+        thinkingWrapper.remove();
+        
+        // Append the real AI message
+        appendMessageUI('ai', responseText);
         
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         
-        // Batch save and UI update
         saveState();
         renderChatList(); 
         
     } catch (err) {
-        aiBubble.innerHTML = `<div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>`;
+        thinkingWrapper.innerHTML = `
+            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+                <div class="text-red-500 text-sm flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle"></i> Error: ${err.message}
+                </div>
+            </div>
+        `;
     }
 };
 
@@ -759,6 +1087,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
     if (provider === 'google') {
         url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
         headers['Content-Type'] = 'application/json';
+        body.systemInstruction = { parts: [{ text: SYSTEM_PROMPT }] };
         body.contents = messagesHistory.map(msg => {
             let parts = [];
             if (msg.text) parts.push({ text: msg.text });
@@ -788,7 +1117,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
             }
             anthropicMessages.push({ role: msg.role === 'ai' ? 'assistant' : 'user', content });
         }
-        body = { model: modelId, max_tokens: 4096, messages: anthropicMessages };
+        body = { model: modelId, max_tokens: 4096, system: SYSTEM_PROMPT, messages: anthropicMessages };
 
     } else {
         if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
@@ -801,19 +1130,22 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
             headers['X-Title'] = 'Quasar AI';
         }
 
-        const openAiMessages = messagesHistory.map(msg => {
-            const mappedRole = msg.role === 'ai' ? 'assistant' : 'user';
-            if (msg.attachment && mappedRole === 'user') {
-                return {
-                    role: mappedRole,
-                    content: [
-                        { type: 'text', text: msg.text || "Describe this image." },
-                        { type: 'image_url', image_url: { url: msg.attachment.dataUrl } }
-                    ]
-                };
-            }
-            return { role: mappedRole, content: msg.text };
-        });
+        const openAiMessages = [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messagesHistory.map(msg => {
+                const mappedRole = msg.role === 'ai' ? 'assistant' : 'user';
+                if (msg.attachment && mappedRole === 'user') {
+                    return {
+                        role: mappedRole,
+                        content: [
+                            { type: 'text', text: msg.text || "Describe this image." },
+                            { type: 'image_url', image_url: { url: msg.attachment.dataUrl } }
+                        ]
+                    };
+                }
+                return { role: mappedRole, content: msg.text };
+            })
+        ];
 
         body = { model: modelId, messages: openAiMessages };
     }

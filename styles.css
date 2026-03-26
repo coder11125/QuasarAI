@@ -32,6 +32,19 @@ body {
 .message-ai { background: rgba(255, 255, 255, 0.9); color: #1e293b; border: 1px solid rgba(0,0,0,0.05); }
 .dark .message-ai { background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.05); }
 
+/* When a message bubble contains an artifact, remove default padding from bubble */
+.message-ai.has-artifact {
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+/* Allow prose text within artifact-containing bubbles to have padding */
+.message-ai.has-artifact .prose {
+    padding: 1rem 1.25rem;
+}
+
 .prose pre { background: #1e293b !important; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
 .prose code { color: #ec4899; background: rgba(128,128,128,0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; }
 .dark .prose code { color: #f472b6; }
@@ -77,29 +90,330 @@ body {
 
 textarea::-webkit-scrollbar { width: 4px; }
 
-/* Custom Model Selector Dropdown Redesign */
+/* ============================================
+   ARTIFACT / INTERACTIVE CODE BLOCK STYLES
+   ============================================ */
+
+.artifact-block {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: #0f172a;
+    margin: 0;
+    font-size: 0;  /* remove whitespace gaps */
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08);
+    transition: box-shadow 0.2s ease;
+}
+
+.artifact-block:hover {
+    box-shadow: 0 6px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.dark .artifact-block {
+    border-color: rgba(255,255,255,0.07);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* Header */
+.artifact-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #1e293b;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+    gap: 8px;
+}
+
+.artifact-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.artifact-lang-icon {
+    font-size: 14px;
+    color: #60a5fa;
+}
+
+.artifact-lang-label {
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    font-family: ui-monospace, 'Fira Code', monospace;
+}
+
+.artifact-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Tabs within artifact */
+.artifact-tabs {
+    display: flex;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+    margin-right: 4px;
+}
+
+.artifact-tab {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.artifact-tab i {
+    font-size: 10px;
+}
+
+.artifact-tab:hover {
+    color: #94a3b8;
+    background: rgba(255,255,255,0.05);
+}
+
+.artifact-tab.active {
+    background: #3b82f6;
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(59,130,246,0.4);
+}
+
+/* Action buttons */
+.artifact-action-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 12px;
+}
+
+.artifact-action-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #94a3b8;
+}
+
+.artifact-action-btn.copied {
+    color: #34d399;
+}
+
+/* Body / Panes */
+.artifact-body {
+    position: relative;
+    font-size: 14px;
+}
+
+.artifact-code-pane {
+    overflow-x: auto;
+    max-height: 480px;
+    overflow-y: auto;
+}
+
+.artifact-code-pane::-webkit-scrollbar { width: 5px; height: 5px; }
+.artifact-code-pane::-webkit-scrollbar-track { background: transparent; }
+.artifact-code-pane::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+
+.artifact-pre {
+    margin: 0 !important;
+    padding: 16px 20px !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+
+.artifact-code {
+    font-family: ui-monospace, 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #e2e8f0;
+    white-space: pre;
+    display: block;
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* Syntax: minimal token coloring using CSS attribute selectors and native browser */
+.artifact-pre code.lang-html .tag { color: #f472b6; }
+
+/* Line number gutter-style: left border accent */
+.artifact-code-pane {
+    border-left: 3px solid #3b82f6;
+}
+
+/* Preview iframe */
+.artifact-preview-pane {
+    background: #fff;
+    min-height: 320px;
+}
+
+.artifact-iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+    border: none;
+    display: block;
+    background: #fff;
+}
+
+/* Hidden utility */
+.artifact-block .hidden {
+    display: none !important;
+}
+
+/* ============================================
+   ARTIFACT FULLSCREEN MODAL
+   ============================================ */
+
+.artifact-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.artifact-modal.flex {
+    display: flex;
+}
+
+.artifact-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+}
+
+.artifact-modal-panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    max-height: 88vh;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(12px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.artifact-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #1e293b;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+}
+
+.artifact-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #60a5fa;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: ui-monospace, monospace;
+    flex: 1;
+}
+
+.artifact-modal-tabs {
+    display: flex;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.artifact-modal-tabs.hidden { display: none; }
+
+.artifact-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.artifact-modal-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#artifactModalCodePane {
+    flex: 1;
+    overflow: auto;
+    max-height: calc(88vh - 56px);
+}
+
+#artifactModalCodePane .artifact-pre {
+    min-height: 100%;
+}
+
+#artifactModalPreviewPane {
+    flex: 1;
+    background: #fff;
+}
+
+#artifactModalIframe {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    border: none;
+    display: block;
+}
+
+/* ============================================
+   Custom Model Selector Dropdown
+   ============================================ */
+
 #modelDropdownMenu {
     scrollbar-width: thin;
     padding: 0.5rem 0;
     width: 100%;
 }
 
-#modelDropdownMenu::-webkit-scrollbar {
-    width: 6px;
-}
-
-#modelDropdownMenu::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#modelDropdownMenu::-webkit-scrollbar-thumb {
-    background: rgba(156, 163, 175, 0.5);
-    border-radius: 10px;
-}
-
-.dark #modelDropdownMenu::-webkit-scrollbar-thumb {
-    background: rgba(71, 85, 105, 0.8);
-}
+#modelDropdownMenu::-webkit-scrollbar { width: 6px; }
+#modelDropdownMenu::-webkit-scrollbar-track { background: transparent; }
+#modelDropdownMenu::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 10px; }
+.dark #modelDropdownMenu::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.8); }
 
 .model-provider-group {
     display: flex;
@@ -107,14 +421,8 @@ textarea::-webkit-scrollbar { width: 4px; }
     padding: 0;
     border-bottom: 1px solid rgba(156, 163, 175, 0.1);
 }
-
-.dark .model-provider-group {
-    border-bottom-color: rgba(255, 255, 255, 0.05);
-}
-
-.model-provider-group:last-child {
-    border-bottom: none;
-}
+.dark .model-provider-group { border-bottom-color: rgba(255, 255, 255, 0.05); }
+.model-provider-group:last-child { border-bottom: none; }
 
 .model-provider-name {
     font-weight: 700;
@@ -127,11 +435,7 @@ textarea::-webkit-scrollbar { width: 4px; }
     display: flex;
     align-items: center;
 }
-
-.dark .model-provider-name {
-    color: #64748b;
-    background: rgba(0, 0, 0, 0.1);
-}
+.dark .model-provider-name { color: #64748b; background: rgba(0, 0, 0, 0.1); }
 
 .model-item {
     display: flex;
@@ -148,39 +452,12 @@ textarea::-webkit-scrollbar { width: 4px; }
     font-family: inherit;
     cursor: pointer;
 }
-
-.dark .model-item {
-    color: #cbd5e1;
-}
-
-.model-item:hover {
-    background-color: #f1f5f9;
-    color: #3b82f6;
-    border-left-color: #3b82f6;
-}
-
-.dark .model-item:hover {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #60a5fa;
-    border-left-color: #60a5fa;
-}
-
-.model-item.active {
-    background-color: #eff6ff;
-    color: #2563eb;
-    font-weight: 600;
-    border-left-color: #2563eb;
-}
-
-.model-item.active .selected-icon {
-    opacity: 1 !important;
-}
-
-.dark .model-item.active {
-    background-color: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
-    border-left-color: #60a5fa;
-}
+.dark .model-item { color: #cbd5e1; }
+.model-item:hover { background-color: #f1f5f9; color: #3b82f6; border-left-color: #3b82f6; }
+.dark .model-item:hover { background-color: rgba(59, 130, 246, 0.1); color: #60a5fa; border-left-color: #60a5fa; }
+.model-item.active { background-color: #eff6ff; color: #2563eb; font-weight: 600; border-left-color: #2563eb; }
+.model-item.active .selected-icon { opacity: 1 !important; }
+.dark .model-item.active { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border-left-color: #60a5fa; }
 
 .model-name-text {
     flex: 1;
