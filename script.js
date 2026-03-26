@@ -560,33 +560,86 @@ function setupSpeechRecognition() {
     
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US'; // Default language
     
     let isRecording = false;
+    let interimTranscript = '';
 
     recognition.onstart = () => {
         isRecording = true;
+        interimTranscript = '';
         DOM.voiceBtn.classList.add('text-red-500', 'animate-pulse');
+        showToast('🎤 Listening...', 'success');
     };
     
-    recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        DOM.userInput.value += (DOM.userInput.value ? ' ' : '') + transcript;
+    recognition.onresult = (event) => {
+        interimTranscript = '';
+        let isFinal = false;
+        
+        // Process all results
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            
+            if (event.results[i].isFinal) {
+                isFinal = true;
+                // Add final transcript
+                DOM.userInput.value += (DOM.userInput.value ? ' ' : '') + transcript;
+            } else {
+                // Show interim results
+                interimTranscript += transcript;
+            }
+        }
+        
+        // Show interim text in placeholder or console
+        if (interimTranscript) {
+            console.log('Interim:', interimTranscript);
+        }
+        
         validateInput();
         DOM.userInput.dispatchEvent(new Event('input'));
     };
 
-    recognition.onerror = () => stopRec();
-    recognition.onend = () => stopRec();
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        const errorMessages = {
+            'no-speech': '❌ No speech detected. Please try again.',
+            'audio-capture': '❌ No microphone found.',
+            'network': '❌ Network error. Check your connection.',
+            'not-allowed': '❌ Microphone permission denied.',
+            'bad-grammar': '❌ Grammar error.',
+            'service-not-allowed': '❌ Speech recognition service not allowed.'
+        };
+        const message = errorMessages[event.error] || `❌ Error: ${event.error}`;
+        showToast(message);
+        stopRec();
+    };
+
+    recognition.onend = () => {
+        stopRec();
+    };
 
     function stopRec() {
         isRecording = false;
+        interimTranscript = '';
         DOM.voiceBtn.classList.remove('text-red-500', 'animate-pulse');
     }
 
-    DOM.voiceBtn.onclick = () => {
-        if (isRecording) recognition.stop();
-        else recognition.start();
+    DOM.voiceBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (isRecording) {
+            recognition.stop();
+            showToast('✅ Recording stopped', 'success');
+        } else {
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('Failed to start recognition:', error);
+                showToast('❌ Failed to start microphone');
+            }
+        }
     };
 }
 
