@@ -1,6 +1,13 @@
+/* Performance Optimizations */
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
 body {
     background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%);
     transition: background 0.3s ease, color 0.3s ease;
+    will-change: background;
 }
 .dark body {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
@@ -33,7 +40,10 @@ body {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-slide-in { 
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: opacity, transform;
+}
 
 @keyframes toastSlide {
     from { opacity: 0; transform: translateY(100%); }

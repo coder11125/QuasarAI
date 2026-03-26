@@ -245,7 +245,7 @@ function renameChat(id, event) {
 }
 
 function renderChatList() {
-    DOM.chatList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     const sortedIds = Object.keys(state.chats).sort((a,b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
     
     sortedIds.forEach(id => {
@@ -266,8 +266,12 @@ function renderChatList() {
                 <button onclick="deleteChat('${id}', event)" class="p-1.5 text-slate-400 hover:text-red-500 rounded bg-slate-50 dark:bg-slate-700/50" title="Delete"><i class="fas fa-trash text-[10px]"></i></button>
             </div>
         `;
-        DOM.chatList.appendChild(div);
+        fragment.appendChild(div);
     });
+    
+    // Single DOM update
+    DOM.chatList.innerHTML = '';
+    DOM.chatList.appendChild(fragment);
 }
 
 function renderChat(id) {
@@ -307,19 +311,33 @@ function appendMessageUI(role, text, attachment = null) {
     const bubble = document.createElement('div');
     bubble.className = `max-w-[90%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm ${role === 'user' ? 'message-user rounded-br-sm' : 'message-ai rounded-bl-sm'}`;
     
+    // Build content efficiently
     let contentHtml = '';
 
     if (attachment) {
-        contentHtml += `<div class="mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20"><img src="${attachment.dataUrl}" alt="Attachment" class="w-full h-auto object-cover"></div>`;
+        contentHtml += `<div class="mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20"><img src="${attachment.dataUrl}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy"></div>`;
     }
 
     if (role === 'ai') {
-        contentHtml += `<div class="prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed">${marked.parse(text)}</div>`;
+        // Use requestIdleCallback for markdown parsing (non-blocking)
+        const parseMarkdown = () => {
+            try {
+                contentHtml += `<div class="prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed">${marked.parse(text)}</div>`;
+                bubble.innerHTML = contentHtml;
+            } catch (e) {
+                bubble.innerHTML = `<div class="text-sm md:text-base leading-relaxed">${text}</div>`;
+            }
+        };
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(parseMarkdown);
+        } else {
+            parseMarkdown();
+        }
     } else {
         contentHtml += `<div class="whitespace-pre-wrap text-sm md:text-base leading-relaxed">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+        bubble.innerHTML = contentHtml;
     }
 
-    bubble.innerHTML = contentHtml;
     bubble.setAttribute('data-message-text', text);
     wrapper.appendChild(bubble);
 
@@ -330,6 +348,7 @@ function appendMessageUI(role, text, attachment = null) {
     const copyBtn = document.createElement('button');
     copyBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
     copyBtn.title = 'Copy message';
+    copyBtn.type = 'button';
     copyBtn.innerHTML = '<i class="fas fa-copy text-sm"></i>';
     copyBtn.onclick = (e) => {
         e.stopPropagation();
@@ -346,7 +365,11 @@ function appendMessageUI(role, text, attachment = null) {
     buttonContainer.appendChild(copyBtn);
     wrapper.appendChild(buttonContainer);
     DOM.chatWindow.appendChild(wrapper);
-    scrollToBottom();
+    
+    // Debounce scroll
+    clearTimeout(appendMessageUI.scrollTimeout);
+    appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
+    
     return wrapper;
 }
 
@@ -464,8 +487,9 @@ async function saveAndFetch(provider) {
 function updateModelSelector() {
     DOM.modelSelect.innerHTML = '';
     if (!DOM.modelDropdownMenu) return;
-    DOM.modelDropdownMenu.innerHTML = '';
+    
     let hasModels = false;
+    const fragment = document.createDocumentFragment(); // Batch DOM updates
     
     Object.keys(state.models).forEach((provKey) => {
         const provModels = state.models[provKey];
@@ -502,9 +526,13 @@ function updateModelSelector() {
                 DOM.modelSelect.appendChild(option);
             });
             
-            DOM.modelDropdownMenu.appendChild(groupDiv);
+            fragment.appendChild(groupDiv);
         }
     });
+
+    // Single DOM update
+    DOM.modelDropdownMenu.innerHTML = '';
+    DOM.modelDropdownMenu.appendChild(fragment);
 
     if (!hasModels) {
         DOM.modelDropdownLabel.textContent = 'Setup API in Settings';
@@ -561,54 +589,49 @@ function setupSpeechRecognition() {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = 'en-US'; // Default language
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1; // Only get best result, faster
     
     let isRecording = false;
     let interimTranscript = '';
+    let lastResultIndex = 0;
 
     recognition.onstart = () => {
         isRecording = true;
         interimTranscript = '';
+        lastResultIndex = 0;
         DOM.voiceBtn.classList.add('text-red-500', 'animate-pulse');
         showToast('🎤 Listening...', 'success');
     };
     
     recognition.onresult = (event) => {
-        interimTranscript = '';
-        let isFinal = false;
-        
-        // Process all results
+        // Only process new results (optimization)
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             
             if (event.results[i].isFinal) {
-                isFinal = true;
-                // Add final transcript
+                // Add final result immediately
                 DOM.userInput.value += (DOM.userInput.value ? ' ' : '') + transcript;
+                lastResultIndex = i + 1;
             } else {
-                // Show interim results
-                interimTranscript += transcript;
+                // Show interim without logging (faster)
+                interimTranscript = transcript;
             }
         }
         
-        // Show interim text in placeholder or console
-        if (interimTranscript) {
-            console.log('Interim:', interimTranscript);
-        }
-        
+        // Batch DOM updates
         validateInput();
         DOM.userInput.dispatchEvent(new Event('input'));
     };
 
     recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
         const errorMessages = {
-            'no-speech': '❌ No speech detected. Please try again.',
+            'no-speech': '❌ No speech detected. Try again.',
             'audio-capture': '❌ No microphone found.',
-            'network': '❌ Network error. Check your connection.',
-            'not-allowed': '❌ Microphone permission denied.',
+            'network': '❌ Network error.',
+            'not-allowed': '❌ Microphone denied.',
             'bad-grammar': '❌ Grammar error.',
-            'service-not-allowed': '❌ Speech recognition service not allowed.'
+            'service-not-allowed': '❌ Service not allowed.'
         };
         const message = errorMessages[event.error] || `❌ Error: ${event.error}`;
         showToast(message);
@@ -622,6 +645,7 @@ function setupSpeechRecognition() {
     function stopRec() {
         isRecording = false;
         interimTranscript = '';
+        lastResultIndex = 0;
         DOM.voiceBtn.classList.remove('text-red-500', 'animate-pulse');
     }
 
@@ -631,7 +655,6 @@ function setupSpeechRecognition() {
         
         if (isRecording) {
             recognition.stop();
-            showToast('✅ Recording stopped', 'success');
         } else {
             try {
                 recognition.start();
@@ -679,10 +702,20 @@ DOM.chatForm.onsubmit = async (e) => {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history);
         
-        aiBubble.querySelector('.prose').innerHTML = marked.parse(responseText);
+        // Update AI bubble with parsed markdown
+        const proseBubble = aiBubble.querySelector('.prose');
+        if (proseBubble) {
+            try {
+                proseBubble.innerHTML = marked.parse(responseText);
+            } catch (e) {
+                proseBubble.innerHTML = `<div>${responseText}</div>`;
+            }
+        }
         
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
+        
+        // Batch save and UI update
         saveState();
         renderChatList(); 
         
