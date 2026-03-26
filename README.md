@@ -203,3 +203,5 @@ If Quasar AI helps you, please:
 ---
 
 **Quasar AI** — AI simplified. Privacy preserved. Locally powered.
+
+**Note:** This prokect is OSS
