@@ -10,9 +10,9 @@ A sleek, modern, multi-provider AI chat interface that runs **entirely in your b
 
 ### 🤖 **Multi-Provider Support**
 Seamlessly switch between leading AI providers without leaving the app:
-- **Google Gemini** — Gemini 2.5 Pro, 2.0 Flash, 1.5 Pro, and more
-- **OpenAI** — GPT-4, GPT-4 Turbo, GPT-3.5-Turbo
-- **Anthropic Claude** — Claude 3.7 Sonnet, 3.5 Sonnet, 3.5 Haiku, 3 Opus
+- **Google Gemini** — Gemini 2.5 Pro, 3 Flash, 3.1 Pro, and more
+- **OpenAI** — GPT-5, GPT-4 Turbo, GPT-3.5-Turbo
+- **Anthropic Claude** — Claude 4.6 Sonnet, 4.5 Sonnet, 4.5 Haiku, 4.6 Opus
 - **Groq** — Fastest inference for Llama, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
 
@@ -35,6 +35,7 @@ Your data never leaves your device:
 - **Message Copy** — One-click copy of any message to clipboard
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes chat title (editable)
+- **Code Blocks** - A feature where all models are hardcoded to present code on the right side of the chat area. Code in Markdown or HTML will also have a `Preview` feature to see the code when compiled and running
 
 ### 🎨 **Beautiful, Responsive UI**
 - **Glassmorphism Design** — Frosted glass panels with subtle backdrop blur
