@@ -2,7 +2,7 @@
 
 A sleek, modern, multi-provider AI chat interface that runs **entirely in your browser**. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, or OpenRouter—all from one beautiful, privacy-focused interface. No backend. No accounts. Just pure, local AI.
 
-![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-active-brightgreen) ![Software licensing model](https://img.shields.io/badge/software licensing model-OSS-blue)
+![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-active-brightgreen) ![Status](https://img.shields.io/badge/software licensing model-OSS-blue)
 
 
 ---
