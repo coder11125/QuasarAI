@@ -109,8 +109,7 @@ textarea::-webkit-scrollbar { width: 4px; }
 .model-provider-name {
     font-weight: 600;
     font-size: 0.75rem;
-    text-slate-500;
-    dark:text-slate-400;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-right: 0.75rem;
@@ -133,6 +132,9 @@ textarea::-webkit-scrollbar { width: 4px; }
     font-size: 0.75rem;
     white-space: nowrap;
     color: #1e293b;
+    background: none;
+    border: none;
+    font-family: inherit;
 }
 
 .dark .model-item {

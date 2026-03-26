@@ -6,7 +6,6 @@ const ANTHROPIC_HARDCODED_MODELS = [
     'claude-3-opus-20240229'
 ];
 
-// Logos removed as requested
 const DEFAULT_PROVIDERS = {
     google: { name: "Google Gemini", url: "https://generativelanguage.googleapis.com/v1beta/models", link: "https://aistudio.google.com/app/apikey" },
     openai: { name: "OpenAI", url: "https://api.openai.com/v1/models", link: "https://platform.openai.com/api-keys" },
@@ -42,6 +41,9 @@ const DOM = {
     userInput: document.getElementById('userInput'),
     sendBtn: document.getElementById('sendBtn'),
     modelSelect: document.getElementById('modelSelect'),
+    modelDropdownBtn: document.getElementById('modelDropdownBtn'),
+    modelDropdownMenu: document.getElementById('modelDropdownMenu'),
+    modelDropdownLabel: document.getElementById('modelDropdownLabel'),
     settingsModal: document.getElementById('settingsModal'),
     providerSettingsList: document.getElementById('providerSettingsList'),
     fileInput: document.getElementById('fileInput'),
@@ -76,7 +78,6 @@ function init() {
     if (saved) {
         const parsed = JSON.parse(saved);
         state = { ...state, ...parsed };
-        if(!state.keys.anthropic) state.models.anthropic = [];
     }
     
     if (state.theme === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -91,6 +92,7 @@ function init() {
 
     renderProviderSettings();
     updateModelSelector();
+    setupModelDropdown();
     
     if (Object.keys(state.chats).length === 0) {
         createNewChat(false);
@@ -151,36 +153,41 @@ function validateInput() {
     DOM.sendBtn.disabled = !( (hasText || hasFile) && hasModel );
 }
 
-// Custom Model Dropdown Handler
-const DOM_modelDropdownBtn = document.getElementById('modelDropdownBtn');
-const DOM_modelDropdownMenu = document.getElementById('modelDropdownMenu');
-const DOM_modelDropdownLabel = document.getElementById('modelDropdownLabel');
-
-DOM_modelDropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    DOM_modelDropdownMenu.classList.toggle('hidden');
+DOM.modelSelect.addEventListener('change', (e) => {
+    state.selectedModel = e.target.value;
+    saveState();
+    validateInput();
 });
 
-document.addEventListener('click', () => {
-    DOM_modelDropdownMenu.classList.add('hidden');
-});
+// --- 4. CUSTOM MODEL DROPDOWN ---
+function setupModelDropdown() {
+    if (!DOM.modelDropdownBtn || !DOM.modelDropdownMenu) return;
+    
+    DOM.modelDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        DOM.modelDropdownMenu.classList.toggle('hidden');
+    });
 
-DOM_modelDropdownMenu.addEventListener('click', (e) => {
-    e.stopPropagation();
-});
+    document.addEventListener('click', () => {
+        DOM.modelDropdownMenu.classList.add('hidden');
+    });
 
-// Model selection from custom dropdown
+    DOM.modelDropdownMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+}
+
 function selectModel(providerKey, modelId) {
     state.selectedModel = `${providerKey}|${modelId}`;
     const modelName = modelId.split('/').pop();
-    DOM_modelDropdownLabel.textContent = modelName;
-    DOM_modelDropdownMenu.classList.add('hidden');
+    DOM.modelDropdownLabel.textContent = modelName;
+    DOM.modelDropdownMenu.classList.add('hidden');
     DOM.modelSelect.value = state.selectedModel;
     saveState();
     validateInput();
 }
 
-// --- 4. CHAT MANAGEMENT ---
+// --- 5. CHAT MANAGEMENT ---
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 
 function createNewChat(switchChat = true) {
@@ -343,12 +350,13 @@ function appendMessageUI(role, text, attachment = null) {
     return wrapper;
 }
 
-// --- 5. SETTINGS & MODEL FETCHING ---
+// --- 6. SETTINGS & MODEL FETCHING ---
 function openSettings(tabId = 'general') {
     switchTab(tabId);
     renderProviderSettings();
     DOM.settingsModal.classList.replace('hidden', 'flex');
 }
+
 function closeSettings() {
     DOM.settingsModal.classList.replace('flex', 'hidden');
 }
@@ -455,7 +463,8 @@ async function saveAndFetch(provider) {
 
 function updateModelSelector() {
     DOM.modelSelect.innerHTML = '';
-    DOM_modelDropdownMenu.innerHTML = '';
+    if (!DOM.modelDropdownMenu) return;
+    DOM.modelDropdownMenu.innerHTML = '';
     let hasModels = false;
     
     Object.keys(state.models).forEach((provKey) => {
@@ -478,39 +487,37 @@ function updateModelSelector() {
                 const modelBtn = document.createElement('button');
                 modelBtn.type = 'button';
                 modelBtn.className = 'model-item';
-                modelBtn.textContent = m.split('/').pop(); // Show only last part of model name
+                modelBtn.textContent = m.split('/').pop();
                 modelBtn.onclick = (e) => {
                     e.preventDefault();
                     selectModel(provKey, m);
-                    updateModelSelector(); // Refresh UI to show active state
+                    updateModelSelector();
                 };
                 groupDiv.appendChild(modelBtn);
                 
-                // Also add to hidden select
+                // Add to hidden select
                 const option = document.createElement('option');
                 option.value = `${provKey}|${m}`;
                 option.textContent = m;
                 DOM.modelSelect.appendChild(option);
             });
             
-            DOM_modelDropdownMenu.appendChild(groupDiv);
+            DOM.modelDropdownMenu.appendChild(groupDiv);
         }
     });
 
     if (!hasModels) {
-        DOM_modelDropdownLabel.textContent = 'Setup API in Settings';
+        DOM.modelDropdownLabel.textContent = 'Setup API in Settings';
     } else {
-        // Set active state on current model
-        const activeButtons = DOM_modelDropdownMenu.querySelectorAll('.model-item');
+        const activeButtons = DOM.modelDropdownMenu.querySelectorAll('.model-item');
         activeButtons.forEach(btn => {
             btn.classList.remove('active');
             if (state.selectedModel && btn.textContent === state.selectedModel.split('|')[1].split('/').pop()) {
                 btn.classList.add('active');
-                DOM_modelDropdownLabel.textContent = btn.textContent;
+                DOM.modelDropdownLabel.textContent = btn.textContent;
             }
         });
         
-        // If no model selected yet, select the first one
         if (!state.selectedModel && activeButtons.length > 0) {
             activeButtons[0].click();
         }
@@ -518,7 +525,7 @@ function updateModelSelector() {
     validateInput();
 }
 
-// --- 6. FILE & VOICE INPUT ---
+// --- 7. FILE & VOICE INPUT ---
 DOM.fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -583,7 +590,7 @@ function setupSpeechRecognition() {
     };
 }
 
-// --- 7. MESSAGE SENDING & API ABSTRACTION ---
+// --- 8. MESSAGE SENDING & API ABSTRACTION ---
 DOM.chatForm.onsubmit = async (e) => {
     e.preventDefault();
     const text = DOM.userInput.value.trim();
