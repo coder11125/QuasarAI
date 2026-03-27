@@ -38,6 +38,62 @@ const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rule
 2. Never output raw unwrapped code outside of a fenced block.
 3. Be concise, clear, and helpful.`;
 
+// --- MARKED CONFIGURATION ---
+marked.use({
+    gfm: true,        // GitHub Flavoured Markdown: tables, strikethrough, task lists
+    breaks: true,     // Single newlines become <br>
+    renderer: (() => {
+        const r = new marked.Renderer();
+
+        // Open all links in a new tab safely
+        r.link = (href, title, text) =>
+            `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
+
+        // Inline code — styled token, not a full artifact card
+        r.codespan = (code) =>
+            `<code class="inline-code">${code}</code>`;
+
+        // Fenced code blocks inside prose get a styled pre/code
+        // (These should have been stripped by parseMessageSegments already,
+        //  but this handles any that slip through in pure-text segments)
+        r.code = (code, lang) => {
+            const safeLang = (lang || 'plaintext').toLowerCase();
+            const icon = LANG_ICONS[safeLang] || 'fas fa-code';
+            const label = safeLang === 'plaintext' ? 'Code' : safeLang.toUpperCase();
+            const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `
+                <div class="prose-code-block">
+                    <div class="prose-code-header">
+                        <span class="prose-code-lang"><i class="${icon}"></i> ${label}</span>
+                        <button class="prose-code-copy" onclick="copyProseCode(this)" title="Copy">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <pre class="prose-code-pre"><code>${escaped}</code></pre>
+                </div>`;
+        };
+
+        // Tables — add classes for styling
+        r.table = (header, body) =>
+            `<div class="prose-table-wrap"><table class="prose-table"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+
+        // Blockquotes
+        r.blockquote = (quote) =>
+            `<blockquote class="prose-blockquote">${quote}</blockquote>`;
+
+        return r;
+    })()
+});
+
+// Copy button for prose code blocks
+function copyProseCode(btn) {
+    const code = btn.closest('.prose-code-block').querySelector('code').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 2000);
+    }).catch(() => showToast('Failed to copy'));
+}
+
 let state = {
     keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
     models: { google: [], openai: [], anthropic: [], groq: [], openrouter: [] },
