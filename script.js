@@ -155,6 +155,7 @@ const DOM = {
     artifactPanelCode: document.getElementById('artifactPanelCode'),
     artifactPanelIframe: document.getElementById('artifactPanelIframe'),
     artifactPanelCopyBtn: document.getElementById('artifactPanelCopyBtn'),
+    loadingSpinner: document.getElementById('loadingSpinner'),
 };
 
 // --- TOAST ---
@@ -172,6 +173,19 @@ function showToast(message, type = 'error') {
     `;
     DOM.toastContainer.appendChild(toast);
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
+}
+
+// --- LOADING SPINNER ---
+function showSpinner() {
+    if (DOM.loadingSpinner) {
+        DOM.loadingSpinner.style.display = 'flex';
+    }
+}
+
+function hideSpinner() {
+    if (DOM.loadingSpinner) {
+        DOM.loadingSpinner.style.display = 'none';
+    }
 }
 
 // --- CHAT SEARCH & FILTERING ---
@@ -699,9 +713,11 @@ function appendMessageUI(role, text, attachment = null) {
     bubble.setAttribute('data-message-text', text);
     wrapper.appendChild(bubble);
 
-    // Copy button
+    // Action buttons container
     const btnContainer = document.createElement('div');
-    btnContainer.className = 'flex items-start opacity-0 group-hover:opacity-100 transition-opacity pt-1';
+    btnContainer.className = 'flex flex-col items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1';
+    
+    // Copy button
     const copyBtn = document.createElement('button');
     copyBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
     copyBtn.title = 'Copy message';
@@ -715,6 +731,35 @@ function appendMessageUI(role, text, attachment = null) {
         }).catch(() => showToast('Failed to copy message'));
     };
     btnContainer.appendChild(copyBtn);
+
+    // Edit button (user messages only)
+    if (role === 'user') {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
+        editBtn.title = 'Edit message';
+        editBtn.type = 'button';
+        editBtn.innerHTML = '<i class="fas fa-pen text-sm"></i>';
+        editBtn.onclick = (e) => {
+            e.stopPropagation();
+            editMessage(wrapper, text, attachment);
+        };
+        btnContainer.appendChild(editBtn);
+    }
+
+    // Regenerate button (AI messages only)
+    if (role === 'ai') {
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
+        regenBtn.title = 'Regenerate response';
+        regenBtn.type = 'button';
+        regenBtn.innerHTML = '<i class="fas fa-rotate text-sm"></i>';
+        regenBtn.onclick = (e) => {
+            e.stopPropagation();
+            regenerateResponse(wrapper);
+        };
+        btnContainer.appendChild(regenBtn);
+    }
+    
     wrapper.appendChild(btnContainer);
     DOM.chatWindow.appendChild(wrapper);
 
@@ -947,15 +992,18 @@ DOM.chatForm.onsubmit = async (e) => {
     DOM.chatWindow.appendChild(thinkingWrapper);
     scrollToBottom();
 
+    showSpinner(); // Show loading spinner
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history);
+        hideSpinner(); // Hide loading spinner
         thinkingWrapper.remove();
         appendMessageUI('ai', responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(); renderChatList();
     } catch (err) {
+        hideSpinner(); // Hide loading spinner on error
         thinkingWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
                 <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
@@ -1014,6 +1062,236 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
     if (provider === 'google') return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
     else if (provider === 'anthropic') return data.content?.[0]?.text || "No response.";
     else return data.choices?.[0]?.message?.content || "No response.";
+}
+
+// --- EDIT MESSAGE ---
+function editMessage(messageWrapper, originalText, originalAttachment) {
+    const messageBubble = messageWrapper.querySelector('.message-user');
+    const messageIndex = Array.from(DOM.chatWindow.children).indexOf(messageWrapper);
+    
+    // Save original HTML for cancel
+    const originalHTML = messageBubble.innerHTML;
+    
+    // Create edit form
+    messageBubble.innerHTML = '';
+    messageBubble.className = 'max-w-[90%] md:max-w-[75%] p-4 rounded-2xl shadow-sm message-user rounded-br-sm';
+    
+    const editForm = document.createElement('div');
+    editForm.className = 'space-y-3';
+    
+    // Textarea
+    const textarea = document.createElement('textarea');
+    textarea.className = 'w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 outline-none focus:border-white/40 resize-none';
+    textarea.value = originalText;
+    textarea.rows = 3;
+    textarea.style.minHeight = '80px';
+    
+    // Auto-resize textarea
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
+    
+    // Attachment display (if exists)
+    let attachmentPreview = null;
+    if (originalAttachment) {
+        attachmentPreview = document.createElement('div');
+        attachmentPreview.className = 'flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg';
+        attachmentPreview.innerHTML = `
+            <i class="fas fa-image text-white/70 text-sm"></i>
+            <span class="text-xs text-white/80 truncate flex-1">${originalAttachment.name}</span>
+            <span class="text-xs text-white/50">(unchanged)</span>
+        `;
+        editForm.appendChild(attachmentPreview);
+    }
+    
+    editForm.appendChild(textarea);
+    
+    // Buttons
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'flex gap-2 justify-end';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => {
+        messageBubble.innerHTML = originalHTML;
+    };
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'px-4 py-2 bg-white hover:bg-white/90 text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2';
+    saveBtn.innerHTML = '<i class="fas fa-check"></i> Save & Resend';
+    saveBtn.onclick = async () => {
+        const newText = textarea.value.trim();
+        if (!newText) {
+            showToast('Message cannot be empty');
+            return;
+        }
+        
+        // Update message in state
+        const chat = state.chats[state.currentChatId];
+        const stateMessageIndex = chat.messages.findIndex((msg, idx) => {
+            // Find the user message at this position
+            let uiIndex = 0;
+            for (let i = 0; i <= idx; i++) {
+                if (i === idx) return uiIndex === messageIndex;
+                uiIndex++;
+            }
+            return false;
+        });
+        
+        // Find actual index by counting messages
+        let userMsgCount = 0;
+        let actualIndex = -1;
+        for (let i = 0; i < chat.messages.length; i++) {
+            if (chat.messages[i].role === 'user' || chat.messages[i].role === 'ai') {
+                if (userMsgCount === messageIndex) {
+                    actualIndex = i;
+                    break;
+                }
+                userMsgCount++;
+            }
+        }
+        
+        if (actualIndex === -1) {
+            showToast('Error finding message');
+            return;
+        }
+        
+        // Update the message
+        chat.messages[actualIndex].text = newText;
+        
+        // Remove all messages after this one (since we're re-sending)
+        chat.messages = chat.messages.slice(0, actualIndex + 1);
+        
+        // Save state
+        saveState();
+        
+        // Re-render chat to show updated message
+        renderChat(state.currentChatId);
+        
+        // Automatically resend to get new AI response
+        const selected = state.selectedModel;
+        if (!selected) {
+            showToast('Please select a model');
+            return;
+        }
+        
+        const [provider, modelId] = selected.split('|');
+        const apiKey = state.keys[provider];
+        if (!apiKey) {
+            showToast(`API Key missing for ${provider}`);
+            return;
+        }
+        
+        // Add thinking indicator
+        const thinkingWrapper = document.createElement('div');
+        thinkingWrapper.className = 'flex w-full justify-start animate-slide-in gap-2';
+        thinkingWrapper.innerHTML = `
+            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+                <span class="flex items-center gap-2 text-sm text-slate-500">
+                    <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Thinking...
+                </span>
+            </div>`;
+        DOM.chatWindow.appendChild(thinkingWrapper);
+        scrollToBottom();
+        
+        showSpinner(); // Show loading spinner
+        try {
+            const history = chat.messages.slice(-12);
+            const responseText = await callAIProvider(provider, modelId, apiKey, history);
+            hideSpinner(); // Hide loading spinner
+            thinkingWrapper.remove();
+            appendMessageUI('ai', responseText);
+            chat.messages.push({ role: 'ai', text: responseText });
+            chat.updatedAt = Date.now();
+            saveState();
+            renderChatList();
+        } catch (err) {
+            hideSpinner(); // Hide loading spinner on error
+            thinkingWrapper.innerHTML = `
+                <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
+                </div>`;
+        }
+    };
+    
+    btnGroup.appendChild(cancelBtn);
+    btnGroup.appendChild(saveBtn);
+    editForm.appendChild(btnGroup);
+    
+    messageBubble.appendChild(editForm);
+    textarea.focus();
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+// --- REGENERATE RESPONSE ---
+async function regenerateResponse(aiMessageWrapper) {
+    const messageIndex = Array.from(DOM.chatWindow.children).indexOf(aiMessageWrapper);
+    const chat = state.chats[state.currentChatId];
+    
+    // Find the corresponding message in state
+    let msgCount = 0;
+    let actualIndex = -1;
+    for (let i = 0; i < chat.messages.length; i++) {
+        if (msgCount === messageIndex) {
+            actualIndex = i;
+            break;
+        }
+        msgCount++;
+    }
+    
+    if (actualIndex === -1 || chat.messages[actualIndex].role !== 'ai') {
+        showToast('Error: Could not find AI message');
+        return;
+    }
+    
+    // Check if we have a model selected
+    const selected = state.selectedModel;
+    if (!selected) {
+        showToast('Please select a model');
+        return;
+    }
+    
+    const [provider, modelId] = selected.split('|');
+    const apiKey = state.keys[provider];
+    if (!apiKey) {
+        showToast(`API Key missing for ${provider}`);
+        openSettings('api');
+        return;
+    }
+    
+    // Replace the AI message with a thinking indicator
+    aiMessageWrapper.innerHTML = `
+        <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+            <span class="flex items-center gap-2 text-sm text-slate-500">
+                <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Regenerating...
+            </span>
+        </div>`;
+    
+    showSpinner(); // Show loading spinner
+    try {
+        // Get conversation history up to (but not including) this message
+        const history = chat.messages.slice(0, actualIndex);
+        const responseText = await callAIProvider(provider, modelId, apiKey, history);
+        
+        hideSpinner(); // Hide loading spinner
+        // Update state
+        chat.messages[actualIndex].text = responseText;
+        chat.updatedAt = Date.now();
+        saveState();
+        
+        // Re-render the entire chat to show updated message
+        renderChat(state.currentChatId);
+        renderChatList();
+        
+    } catch (err) {
+        hideSpinner(); // Hide loading spinner on error
+        aiMessageWrapper.innerHTML = `
+            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
+            </div>`;
+    }
 }
 
 init();
