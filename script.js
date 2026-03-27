@@ -101,7 +101,8 @@ let state = {
     currentChatId: null,
     selectedModel: '',
     theme: 'light',
-    sidebarCollapsed: false
+    sidebarCollapsed: false,
+    searchQuery: ''
 };
 
 let currentAttachment = null;
@@ -123,6 +124,8 @@ const DOM = {
     toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
     closeSidebarBtnMobile: document.getElementById('closeSidebarBtnMobile'),
     chatList: document.getElementById('chatList'),
+    emptySearchState: document.getElementById('emptySearchState'),
+    chatSearchInput: document.getElementById('chatSearchInput'),
     chatWindow: document.getElementById('chatWindow'),
     currentChatTitle: document.getElementById('currentChatTitle'),
     chatForm: document.getElementById('chatForm'),
@@ -171,6 +174,20 @@ function showToast(message, type = 'error') {
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
 }
 
+// --- CHAT SEARCH & FILTERING ---
+function getSearchableText(chat) {
+    const titleText = chat.title.toLowerCase();
+    const firstMessageText = chat.messages.length > 0 
+        ? chat.messages[0].text.toLowerCase().substring(0, 100)
+        : '';
+    return `${titleText} ${firstMessageText}`;
+}
+
+function filterChats(query) {
+    state.searchQuery = query.toLowerCase();
+    renderChatList();
+}
+
 // --- INIT ---
 function init() {
     const saved = localStorage.getItem('quasar_state');
@@ -190,6 +207,7 @@ function init() {
     updateModelSelector();
     setupModelDropdown();
     setupResizeHandle();
+    setupSearchInput();
 
     if (Object.keys(state.chats).length === 0) {
         createNewChat(false);
@@ -234,6 +252,14 @@ function closeMobileSidebar() {
 }
 DOM.closeSidebarBtnMobile.onclick = closeMobileSidebar;
 DOM.mobileOverlay.onclick = closeMobileSidebar;
+
+// --- SEARCH INPUT SETUP ---
+function setupSearchInput() {
+    DOM.chatSearchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        filterChats(query);
+    });
+}
 
 // --- INPUT ---
 DOM.userInput.addEventListener('input', function () {
@@ -488,9 +514,20 @@ function renameChat(id, event) {
 }
 
 function renderChatList() {
+    const query = state.searchQuery;
+    const allChats = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
+    
+    // Filter chats based on search query
+    const filteredIds = query === ''
+        ? allChats
+        : allChats.filter(id => {
+            const chat = state.chats[id];
+            const searchableText = getSearchableText(chat);
+            return searchableText.includes(query);
+        });
+
     const fragment = document.createDocumentFragment();
-    const sortedIds = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
-    sortedIds.forEach(id => {
+    filteredIds.forEach(id => {
         const chat = state.chats[id];
         const isSelected = id === state.currentChatId;
         const div = document.createElement('div');
@@ -508,8 +545,18 @@ function renderChatList() {
         `;
         fragment.appendChild(div);
     });
+
     DOM.chatList.innerHTML = '';
     DOM.chatList.appendChild(fragment);
+
+    // Show/hide empty state
+    if (filteredIds.length === 0) {
+        DOM.chatList.classList.add('hidden');
+        DOM.emptySearchState.classList.remove('hidden');
+    } else {
+        DOM.chatList.classList.remove('hidden');
+        DOM.emptySearchState.classList.add('hidden');
+    }
 }
 
 function renderChat(id) {

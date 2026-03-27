@@ -412,7 +412,7 @@ textarea::-webkit-scrollbar { width: 4px; }
     text-transform: none;
     letter-spacing: 0;
     font-size: 11px;
-    truncate: ellipsis;
+    text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
 }
