@@ -1,0 +1,2 @@
+*.ts linguist-detectable=true
+*.ts linguist-generated=false
