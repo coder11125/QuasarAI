@@ -18,14 +18,6 @@ Seamlessly switch between leading AI providers without leaving the app:
 
 Switch between providers with one click. Use different models in different conversations.
 
-### 🔒 **100% Privacy-First**
-Your data never leaves your device:
-- API keys stored **only** in browser localStorage (never sent to third parties)
-- Chat history remains on your device
-- Direct connections to official provider APIs—no proxy servers
-- Works offline after initial load (for stored chats)
-- GDPR-compliant by design
-
 ### 💬 **Rich Chat Experience**
 - **Full Markdown Rendering** — Code blocks with syntax highlighting, tables, lists, bold/italic, links
 - **Image Attachments** — Upload images and leverage vision capabilities (supported by most providers)
