@@ -677,47 +677,30 @@ function appendMessageUI(role, text, attachment = null) {
         const segments = parseMessageSegments(text);
         let firstItem = true;
 
-        segments.forEach((seg) => {
+        segments.forEach((seg, idx) => {
+            const isLast = idx === segments.length - 1;
             if (seg.type === 'text' && seg.content.trim()) {
                 const textDiv = document.createElement('div');
-                textDiv.className = `prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed px-5 ${firstItem ? 'pt-5' : 'pt-2'}`;
+                textDiv.className = 'prose-msg';
+                textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
                 try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
                 catch (e) { textDiv.textContent = seg.content; }
+                // Nuke any trailing <br> or empty <p> marked injected
+                textDiv.querySelectorAll('p').forEach(p => {
+                    p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
+                    if (!p.innerHTML.trim()) p.remove();
+                });
                 bubble.appendChild(textDiv);
                 firstItem = false;
             } else if (seg.type === 'code') {
                 const card = buildArtifactCard(seg.lang, seg.content);
-                card.style.margin = firstItem ? '12px 12px 12px 12px' : '0 12px 12px 12px';
+                const t = firstItem ? '12px' : '4px';
+                const b = isLast ? '12px' : '4px';
+                card.style.margin = `${t} 12px ${b} 12px`;
                 bubble.appendChild(card);
                 firstItem = false;
             }
         });
-
-        // Apply correct bottom padding/margin to the last child only
-        const children = Array.from(bubble.children);
-        const lastChild = children[children.length - 1];
-        if (lastChild) {
-            if (lastChild.classList.contains('prose')) {
-                // Strip trailing empty nodes (empty p, lone br, whitespace text)
-                // that marked.parse() injects due to trailing newlines
-                let node = lastChild.lastChild;
-                while (node) {
-                    const isEmptyText = node.nodeType === Node.TEXT_NODE && !node.textContent.trim();
-                    const isEmptyP = node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P' && !node.textContent.trim() && !node.children.length;
-                    const isBr = node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR';
-                    if (isEmptyText || isEmptyP || isBr) {
-                        const prev = node.previousSibling;
-                        lastChild.removeChild(node);
-                        node = prev;
-                    } else {
-                        break;
-                    }
-                }
-                lastChild.style.paddingBottom = '16px';
-            } else {
-                lastChild.style.marginBottom = '12px';
-            }
-        }
     }
 
     bubble.setAttribute('data-message-text', text);
