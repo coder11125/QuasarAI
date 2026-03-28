@@ -677,7 +677,7 @@ function appendMessageUI(role, text, attachment = null) {
             if (seg.type === 'text' && seg.content.trim()) {
                 const textDiv = document.createElement('div');
                 textDiv.className = `prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed px-5 ${firstItem ? 'pt-5' : 'pt-2'}`;
-                try { textDiv.innerHTML = marked.parse(seg.content); }
+                try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
                 catch (e) { textDiv.textContent = seg.content; }
                 bubble.appendChild(textDiv);
                 firstItem = false;
@@ -694,10 +694,21 @@ function appendMessageUI(role, text, attachment = null) {
         const lastChild = children[children.length - 1];
         if (lastChild) {
             if (lastChild.classList.contains('prose')) {
-                // Remove any trailing empty <p> tags marked may have injected
-                lastChild.querySelectorAll('p').forEach(p => {
-                    if (!p.textContent.trim() && !p.children.length) p.remove();
-                });
+                // Strip trailing empty nodes (empty p, lone br, whitespace text)
+                // that marked.parse() injects due to trailing newlines
+                let node = lastChild.lastChild;
+                while (node) {
+                    const isEmptyText = node.nodeType === Node.TEXT_NODE && !node.textContent.trim();
+                    const isEmptyP = node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P' && !node.textContent.trim() && !node.children.length;
+                    const isBr = node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR';
+                    if (isEmptyText || isEmptyP || isBr) {
+                        const prev = node.previousSibling;
+                        lastChild.removeChild(node);
+                        node = prev;
+                    } else {
+                        break;
+                    }
+                }
                 lastChild.style.paddingBottom = '16px';
             } else {
                 lastChild.style.marginBottom = '12px';
