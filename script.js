@@ -41,13 +41,17 @@ const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rule
 // --- MARKED CONFIGURATION ---
 marked.use({
     gfm: true,        // GitHub Flavoured Markdown: tables, strikethrough, task lists
-    breaks: true,     // Single newlines become <br>
+    breaks: false,    // Disable: single newlines were becoming <br> inside <p>, adding phantom height
     renderer: (() => {
         const r = new marked.Renderer();
 
         // Open all links in a new tab safely
         r.link = (href, title, text) =>
             `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
+
+        // Paragraphs: strip any trailing <br> tags to prevent phantom bottom space
+        r.paragraph = (text) =>
+            `<p>${text.replace(/(<br\s*\/?>\s*)+$/, '')}</p>`;
 
         // Inline code — styled token, not a full artifact card
         r.codespan = (code) =>
