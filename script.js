@@ -232,7 +232,73 @@ function init() {
 
 function saveState() {
     localStorage.setItem('quasar_state', JSON.stringify(state));
+    // Debounced server sync — waits 2s after last change before saving
+    clearTimeout(saveState._syncTimer);
+    saveState._syncTimer = setTimeout(syncToServer, 2000);
 }
+
+// --- SERVER SYNC ---
+async function syncToServer() {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+        await fetch('/api/data/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                keys: state.keys,
+                selectedModel: state.selectedModel,
+                chats: state.chats,
+            })
+        });
+    } catch (err) {
+        console.warn('Failed to sync to server:', err);
+    }
+}
+
+async function loadFromServer() {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+        const res = await fetch('/api/data/load', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Merge server data into state — server wins over localStorage
+        if (data.keys) state.keys = { ...state.keys, ...data.keys };
+        if (data.selectedModel) state.selectedModel = data.selectedModel;
+        if (data.chats && Object.keys(data.chats).length > 0) state.chats = data.chats;
+
+        // Save merged state locally
+        localStorage.setItem('quasar_state', JSON.stringify(state));
+
+        // Re-render UI with loaded data
+        updateModelSelector();
+        renderProviderSettings();
+        if (Object.keys(state.chats).length === 0) {
+            createNewChat(false);
+        } else {
+            if (!state.currentChatId || !state.chats[state.currentChatId]) {
+                state.currentChatId = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt)[0];
+            }
+            renderChatList();
+            renderChat(state.currentChatId);
+        }
+        if (state.selectedModel) {
+            DOM.modelSelect.value = state.selectedModel;
+            const [pk, mid] = state.selectedModel.split('|');
+            if (pk && mid) DOM.modelDropdownLabel.textContent = mid.split('/').pop();
+        }
+    } catch (err) {
+        console.warn('Failed to load from server:', err);
+    }
+}
+
 
 // --- THEME ---
 function setTheme(theme) {
@@ -1521,6 +1587,7 @@ function showAuthScreen() {
 }
 function hideAuthScreen() {
     document.getElementById('authScreen').classList.add('auth-hidden');
+    loadFromServer();
 }
 
 function switchAuthTab(tab) {
@@ -1624,8 +1691,14 @@ async function handleRegister() {
 function handleLogout() {
     if (!confirm('Sign out of Quasar AI?')) return;
     clearAuthSession();
+    // Clear local state so next login loads fresh from server
+    localStorage.removeItem('quasar_state');
+    state.keys = { google: '', openai: '', anthropic: '', groq: '', openrouter: '' };
+    state.models = { google: [], openai: [], anthropic: [], groq: [], openrouter: [] };
+    state.chats = {};
+    state.currentChatId = null;
+    state.selectedModel = '';
     showAuthScreen();
-    // Reset form fields
     document.getElementById('loginEmail').value    = '';
     document.getElementById('loginPassword').value = '';
     switchAuthTab('login');
