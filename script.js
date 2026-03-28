@@ -155,7 +155,6 @@ const DOM = {
     artifactPanelCode: document.getElementById('artifactPanelCode'),
     artifactPanelIframe: document.getElementById('artifactPanelIframe'),
     artifactPanelCopyBtn: document.getElementById('artifactPanelCopyBtn'),
-    loadingSpinner: document.getElementById('loadingSpinner'),
 };
 
 // --- TOAST ---
@@ -175,18 +174,6 @@ function showToast(message, type = 'error') {
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
 }
 
-// --- LOADING SPINNER ---
-function showSpinner() {
-    if (DOM.loadingSpinner) {
-        DOM.loadingSpinner.style.display = 'flex';
-    }
-}
-
-function hideSpinner() {
-    if (DOM.loadingSpinner) {
-        DOM.loadingSpinner.style.display = 'none';
-    }
-}
 
 // --- CHAT SEARCH & FILTERING ---
 function getSearchableText(chat) {
@@ -689,7 +676,7 @@ function appendMessageUI(role, text, attachment = null) {
         segments.forEach((seg) => {
             if (seg.type === 'text' && seg.content.trim()) {
                 const textDiv = document.createElement('div');
-                textDiv.className = `prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed px-5 ${firstItem ? 'pt-5' : 'pt-2'} pb-3`;
+                textDiv.className = `prose prose-sm md:prose-base dark:prose-invert max-w-none text-current leading-relaxed px-5 ${firstItem ? 'pt-5' : 'pt-2'}`;
                 try { textDiv.innerHTML = marked.parse(seg.content); }
                 catch (e) { textDiv.textContent = seg.content; }
                 bubble.appendChild(textDiv);
@@ -702,11 +689,15 @@ function appendMessageUI(role, text, attachment = null) {
             }
         });
 
-        // Ensure bottom padding on last text node
+        // Apply correct bottom padding/margin to the last child only
         const children = Array.from(bubble.children);
         const lastChild = children[children.length - 1];
-        if (lastChild && lastChild.classList.contains('prose')) {
-            lastChild.classList.add('pb-5');
+        if (lastChild) {
+            if (lastChild.classList.contains('prose')) {
+                lastChild.style.paddingBottom = '20px';
+            } else {
+                lastChild.style.marginBottom = '12px';
+            }
         }
     }
 
@@ -992,18 +983,15 @@ DOM.chatForm.onsubmit = async (e) => {
     DOM.chatWindow.appendChild(thinkingWrapper);
     scrollToBottom();
 
-    showSpinner(); // Show loading spinner
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history);
-        hideSpinner(); // Hide loading spinner
         thinkingWrapper.remove();
         appendMessageUI('ai', responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(); renderChatList();
     } catch (err) {
-        hideSpinner(); // Hide loading spinner on error
         thinkingWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
                 <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
@@ -1196,11 +1184,9 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         DOM.chatWindow.appendChild(thinkingWrapper);
         scrollToBottom();
         
-        showSpinner(); // Show loading spinner
         try {
             const history = chat.messages.slice(-12);
             const responseText = await callAIProvider(provider, modelId, apiKey, history);
-            hideSpinner(); // Hide loading spinner
             thinkingWrapper.remove();
             appendMessageUI('ai', responseText);
             chat.messages.push({ role: 'ai', text: responseText });
@@ -1208,7 +1194,6 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
             saveState();
             renderChatList();
         } catch (err) {
-            hideSpinner(); // Hide loading spinner on error
             thinkingWrapper.innerHTML = `
                 <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
                     <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
@@ -1269,13 +1254,11 @@ async function regenerateResponse(aiMessageWrapper) {
             </span>
         </div>`;
     
-    showSpinner(); // Show loading spinner
     try {
         // Get conversation history up to (but not including) this message
         const history = chat.messages.slice(0, actualIndex);
         const responseText = await callAIProvider(provider, modelId, apiKey, history);
         
-        hideSpinner(); // Hide loading spinner
         // Update state
         chat.messages[actualIndex].text = responseText;
         chat.updatedAt = Date.now();
@@ -1286,7 +1269,6 @@ async function regenerateResponse(aiMessageWrapper) {
         renderChatList();
         
     } catch (err) {
-        hideSpinner(); // Hide loading spinner on error
         aiMessageWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
                 <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
