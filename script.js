@@ -694,7 +694,11 @@ function appendMessageUI(role, text, attachment = null) {
         const lastChild = children[children.length - 1];
         if (lastChild) {
             if (lastChild.classList.contains('prose')) {
-                lastChild.style.paddingBottom = '20px';
+                // Remove any trailing empty <p> tags marked may have injected
+                lastChild.querySelectorAll('p').forEach(p => {
+                    if (!p.textContent.trim() && !p.children.length) p.remove();
+                });
+                lastChild.style.paddingBottom = '16px';
             } else {
                 lastChild.style.marginBottom = '12px';
             }

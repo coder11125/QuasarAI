@@ -239,7 +239,7 @@ textarea::-webkit-scrollbar { width: 4px; }
 .prose li { margin: 0.2rem 0; }
 .prose p { margin: 0.35rem 0; }
 .prose p:first-child { margin-top: 0; }
-.prose p:last-child { margin-bottom: 0; }
+.prose p:last-child { margin-bottom: 0; padding-bottom: 0; }
 .prose strong { font-weight: 700; }
 .prose em { font-style: italic; }
 .prose a { color: #3b82f6; text-decoration: underline; text-underline-offset: 2px; }
