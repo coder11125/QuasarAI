@@ -28,6 +28,7 @@ Switch between providers with one click. Use different models in different conve
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes chat title (editable)
 - **Code Blocks** - A feature where all models are hardcoded to present code on the right side of the chat area. Code in Markdown or HTML will also have a `Preview` feature to see the code when compiled and running
+- **OCR** - OCR is available with vision-supported models
 
 ### 🎨 **Beautiful, Responsive UI**
 - **Glassmorphism Design** — Frosted glass panels with subtle backdrop blur
@@ -36,13 +37,6 @@ Switch between providers with one click. Use different models in different conve
 - **Mobile-Friendly** — Fully responsive sidebar, optimal touch experience
 - **Smooth Animations** — Slide-in messages, toast notifications, hover effects
 - **Dark Mode Smart Defaults** — Automatically enables dark mode at night (configurable)
-
-### ⚡ **Developer-Friendly**
-- **Zero Backend Required** — Pure client-side, no server needed
-- **Drop-In Deployment** — Push to GitHub and it gets deployed by Vercel within 5 minutes
-- **No Build Step** — Works as-is; uses CDN-hosted libraries
-- **Open Source** — MIT license; fork and customize freely
-- **Well-Organized Code** — Clear separation of concerns, easy to extend
 
 ---
 
@@ -127,27 +121,6 @@ See each provider's documentation for current limits.
 
 ---
 
-## 🔐 Security & Privacy
-
-### What You Store Locally
-✅ API keys (encrypted in localStorage)  
-✅ Chat messages  
-✅ User preferences (theme, model selection)  
-
-### What We DON'T Send Anywhere or Use
-❌ API keys are never sent to us  
-❌ Chat history never reaches our servers  
-❌ No analytics, tracking, or telemetry  
-❌ No third-party integrations  
-
-### Best Practices
-1. Use a separate API key for Quasar AI (avoid your main dev key)
-2. Regenerate keys if they're accidentally exposed
-3. Clear your browser data to remove chat history
-4. Use on HTTPS-enabled devices when possible
-
----
-
 ## 🤝 Contributing
 
 We welcome contributions! Here's how:
@@ -195,6 +168,6 @@ If Quasar AI helps you, please:
 
 ---
 
-**Quasar AI** — AI simplified. Privacy preserved. Locally powered.
+**Quasar AI** — AI simplified. Privacy preserved.
 
 **Note:** This project is OSS
