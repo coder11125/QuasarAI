@@ -1,150 +1,185 @@
 # ☄️ Quasar AI
 
-A sleek, modern, multi-provider AI chat interface that runs **entirely in your browser**. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, or OpenRouter—all from one beautiful, privacy-focused interface. No backend. No accounts. Just pure, local AI.
+A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, or OpenRouter — all from one beautiful interface with cross-device sync, persistent accounts, and a secure Node.js backend.
 
-![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-active-brightgreen) 
+![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-active-brightgreen) ![Backend](https://img.shields.io/badge/backend-Node.js-green) ![DB](https://img.shields.io/badge/database-MongoDB-brightgreen) ![Lang](https://img.shields.io/badge/backend%20lang-TypeScript-blue)
 
 ---
 
 ## ✨ Features
 
+### 🔐 **Accounts & Cross-Device Sync**
+- **Authentication** — Register and sign in with email and password
+- **JWT Sessions** — Secure token-based auth with 7-day sessions
+- **Cross-Device Sync** — API keys, chat history, and selected model sync across all your devices
+- **MongoDB Persistence** — All data stored in the cloud, never lost on browser clear
+
 ### 🤖 **Multi-Provider Support**
 Seamlessly switch between leading AI providers without leaving the app:
-- **Google Gemini** — Gemini 2.5 Pro, 3 Flash, 3.1 Pro, and more
-- **OpenAI** — GPT-5, GPT-4 Turbo, GPT-3.5-Turbo
-- **Anthropic Claude** — Claude 4.6 Sonnet, 4.5 Sonnet, 4.5 Haiku, 4.6 Opus
+- **Google Gemini** — Gemini 2.5 Pro, Flash, and more
+- **OpenAI** — GPT-4o, GPT-4 Turbo, GPT-3.5-Turbo
+- **Anthropic Claude** — Claude Sonnet, Haiku, Opus
 - **Groq** — Fastest inference for Llama, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
 
-Switch between providers with one click. Use different models in different conversations.
-
 ### 💬 **Rich Chat Experience**
 - **Full Markdown Rendering** — Code blocks with syntax highlighting, tables, lists, bold/italic, links
-- **Image Attachments** — Upload images and leverage vision capabilities (supported by most providers)
+- **Image Attachments** — Upload images and leverage vision capabilities
 - **Voice Input** — Hands-free messaging via Web Speech API
-- **Persistent Chat History** — All conversations saved locally; never lost between sessions
-- **Auto-expanding Textarea** — Input grows as you type (max 48 lines)
-- **Message Copy** — One-click copy of any message to clipboard
+- **Persistent Chat History** — Synced to MongoDB, available on any device
+- **Auto-expanding Textarea** — Input grows as you type
+- **Message Copy** — One-click copy of any message
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
-- **Smart Chat Naming** — First message automatically becomes chat title (editable)
-- **Code Blocks** - A feature where all models are hardcoded to present code on the right side of the chat area. Code in Markdown or HTML will also have a `Preview` feature to see the code when compiled and running
-- **OCR** - OCR is available with vision-supported models
+- **Smart Chat Naming** — First message automatically becomes the chat title
+- **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG
+- **OCR** — Extract text from images using vision-capable models
 
 ### 🎨 **Beautiful, Responsive UI**
 - **Glassmorphism Design** — Frosted glass panels with subtle backdrop blur
-- **Gradient Backgrounds** — Smooth, modern color transitions
 - **Light/Dark Mode** — Toggle anytime; respects system preferences on first visit
 - **Mobile-Friendly** — Fully responsive sidebar, optimal touch experience
 - **Smooth Animations** — Slide-in messages, toast notifications, hover effects
-- **Dark Mode Smart Defaults** — Automatically enables dark mode at night (configurable)
 
 ---
 
 ## 🚀 Getting Started
 
 1. Open [Quasar AI](https://quasar-ai-two.vercel.app/)
+2. **Create an account** — click **Create Account**, enter your email and password
+3. **Add API Keys:**
+   - Click **⚙️ Settings** → **API Management**
+   - Paste your key for each provider and click **Connect**
+   - Keys sync automatically across all your devices
+4. **Start chatting!** Select a model from the top dropdown and begin
 
-2. **Get API Keys (If not there already with you):**
-   - [Google Gemini API](https://aistudio.google.com/app/apikey) — Free tier available, DeepMind models
-   - [OpenAI API](https://platform.openai.com/api-keys) — Free tier available, GPT models
-   - [Anthropic Claude API](https://console.anthropic.com/settings/keys) — Pay-as-you-go, state-of-the-art reasoning
-   - [Groq API](https://console.groq.com/keys) — Free tier available, blazing fast inference
-   - [OpenRouter](https://openrouter.ai/keys) — Access to 200+ models, pay-as-you-go or free tier
-
-3. **Add API Keys in Settings:**
-   - Open Quasar AI
-   - Click **⚙️ Settings** (top right)
-   - Go to **API Management** tab
-   - Paste your API key for each provider
-   - Click **Connect** to fetch available models
-
-4. **Start chatting!** Select a model in the model selector in the top and begin a conversation.
+### API Key Sources
+| Provider | Link | Notes |
+|---|---|---|
+| Google Gemini | [aistudio.google.com](https://aistudio.google.com/app/apikey) | Free tier available |
+| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | Pay-as-you-go |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Pay-as-you-go |
+| Groq | [console.groq.com](https://console.groq.com/keys) | Free tier, fastest inference |
+| OpenRouter | [openrouter.ai](https://openrouter.ai/keys) | 200+ models |
 
 ---
 
 ## 📖 How to Use
 
 ### Basic Chat
-1. **Select a model** from the dropdown (top)
-2. **Type your message** in the input box
-3. **Press Enter** to send (or click Send button)
-4. **Responses appear** with full Markdown support
+1. Select a model from the dropdown at the top
+2. Type your message and press **Enter** to send
+3. Responses render with full Markdown support
 
-### Advanced Features
-
-#### Image Analysis
+### Image Analysis
 1. Click the **📎 paperclip** icon in the input area
 2. Select an image from your device
-3. Type your question about the image
-4. Send—AI will analyze it (if model supports vision)
+3. Type your question and send — AI will analyze it (vision-capable models only)
 
-#### Voice Input
+### OCR — Extract Text from Images
+1. Click the **📄 document** icon in the input area
+2. Select an image containing text
+3. The AI extracts all text and shows it in a modal
+4. Click **Insert into Chat** to paste it into your message
+
+### Voice Input
 1. Click the **🎤 microphone** icon
 2. Speak your message
-3. Release or click again to stop recording
-4. Your speech is transcribed and added to the input
+3. Click again to stop — your speech is transcribed into the input
 
-#### Manage Chats
-- **Rename** — Hover over a chat in the sidebar, click the ✏️ pen icon
-- **Delete** — Hover over a chat, click the 🗑️ trash icon
-- **New Chat** — Click the **+ New Chat** button to start fresh
-- **Switch** — Click any chat name to load that conversation
+### Manage Chats
+- **Rename** — Hover over a chat in the sidebar, click ✏️
+- **Delete** — Hover over a chat, click 🗑️
+- **New Chat** — Click **+ New Chat**
+- **Search** — Use the search bar in the sidebar to find past chats
 
-#### Export & Share
-- **Copy Messages** — Hover over any message, click the 📋 copy button
-- **Select All** — Manually copy your entire chat for backup
-
-#### Customize
-- **Theme** — Toggle Light/Dark mode in Settings → General
-- **Model Parameters** — Swap models mid-conversation (Settings → API Management)
-- **Clear All** — Nuke all chats in Settings → General (⚠️ irreversible)
+### Code & Artifacts
+- All code responses appear as artifact cards in the chat
+- Click **Open** to view code in the side panel
+- HTML and SVG files have a **Preview** tab for live rendering
 
 ---
 
-## 🛠 Configuration
+## 🏗 Architecture
 
-### Storage & Persistence
-- Chat history: `localStorage['quasar_state']` (browser data only)
-- Auto-saved on every message
-- Survives browser restarts
-- Clear manually in Settings or via browser DevTools
+```
+/
+├── index.html           # Frontend UI
+├── script.js            # Frontend logic (vanilla JS)
+├── styles.css           # Styles (Tailwind + custom CSS)
+├── vercel.json          # Vercel routing config
+├── package.json         # Dependencies
+├── tsconfig.json        # TypeScript config
+├── api/
+│   ├── auth/
+│   │   ├── register.ts  # POST /api/auth/register
+│   │   ├── login.ts     # POST /api/auth/login
+│   │   └── me.ts        # GET  /api/auth/me
+│   └── data/
+│       ├── save.ts      # POST /api/data/save
+│       └── load.ts      # GET  /api/data/load
+└── lib/
+    ├── db.ts             # MongoDB connection
+    ├── jwt.ts            # Token sign/verify
+    ├── authMiddleware.ts # requireAuth() helper
+    └── models/
+        ├── User.ts       # User schema
+        └── UserData.ts   # API keys + chats schema
+```
 
-### API Rate Limits
+**Stack:**
+- **Frontend** — Vanilla JS, Tailwind CSS, Marked.js
+- **Backend** — Node.js serverless functions (Vercel), TypeScript
+- **Database** — MongoDB Atlas (Mongoose)
+- **Auth** — JWT (jsonwebtoken) + bcrypt
+- **Hosting** — Vercel Hobby (free)
 
-See each provider's documentation for current limits.
+---
 
-### Browser Requirements
-- Modern browser with ES6+ support (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)
-- Web Speech API for voice input (optional; feature gracefully disabled if unavailable)
-- localStorage enabled (required)
-- HTTPS recommended (required for Web Speech API on most browsers)
+## 🛠 Self-Hosting
+
+### Environment Variables
+Add these in your Vercel project settings:
+
+| Variable | Description |
+|---|---|
+| `JWT_SECRET` | Long random string for signing tokens — `openssl rand -base64 48` |
+| `MONGODB_URI` | MongoDB Atlas connection string |
+
+### Deploy
+1. Fork this repository
+2. Import into [Vercel](https://vercel.com)
+3. Add environment variables
+4. Deploy — Vercel handles everything automatically
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how:
-
 1. **Fork** the repository
-2. **Create a branch or edit existing** 
+2. **Create a branch** for your feature
 3. **Make changes** and test thoroughly
 4. **Commit** with clear messages
-5. **Push** and submit a **Pull Request**
+5. **Push** and open a **Pull Request**
 
 ### Areas for Contribution
 - Bug fixes and optimizations
 - New provider integrations
 - UI/UX improvements
-- Documentation and tutorials
-- Feature ideas and feedback
+- Documentation improvements
+- Feature suggestions
+
+---
+
+## 📋 Browser Requirements
+- Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- Web Speech API for voice input (optional, gracefully disabled if unavailable)
+- HTTPS required for Web Speech API
 
 ---
 
 ## License
 
-MIT License 2026 Quasar AI
-
-Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+MIT License 2026 Quasar AI — Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
 
 ---
 
@@ -154,20 +189,19 @@ Built with:
 - [Tailwind CSS](https://tailwindcss.com) — Styling
 - [Marked.js](https://marked.js.org) — Markdown parsing
 - [Font Awesome](https://fontawesome.com) — Icons
-- Love for clean, privacy-first software
+- [MongoDB Atlas](https://mongodb.com/atlas) — Database
+- [Vercel](https://vercel.com) — Hosting
 
 ---
 
 ## 🌟 Show Your Support
 
-If Quasar AI helps you, please:
+If Quasar AI helps you:
 - ⭐ Star this repository
 - 📢 Share it with friends
-- 🐛 Report bugs responsibly
-- 💡 Suggest features
+- 🐛 Report bugs via Issues
+- 💡 Suggest features via Discussions
 
 ---
 
-**Quasar AI** — AI simplified. Privacy preserved.
-
-**Note:** This project is OSS
+**Quasar AI** — AI simplified. Synced everywhere.
