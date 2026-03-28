@@ -225,6 +225,9 @@ function init() {
     }
     if (state.selectedModel) DOM.modelSelect.value = state.selectedModel;
     setupSpeechRecognition();
+
+    // Check auth — shows login screen if not authenticated
+    checkAuthOnLoad();
 }
 
 function saveState() {
@@ -1372,6 +1375,22 @@ async function runOcr(file) {
         const base64 = dataUrl.split(',')[1];
         const mimeType = file.type || 'image/png';
 
+        // For Groq, only a small set of models support vision — everything else is text-only
+        if (provider === 'groq') {
+            const GROQ_VISION_MODELS = ['llava', 'vision'];
+            const supportsVision = GROQ_VISION_MODELS.some(v => modelId.toLowerCase().includes(v));
+            if (!supportsVision) {
+                showOcrError(`Groq model "${modelId.split('/').pop()}" is text-only and does not support image input. Please switch to a vision-capable model such as claude-3-5-sonnet, gpt-4o, or gemini-1.5-pro.`);
+                return;
+            }
+        }
+        // General blocklist for obviously non-vision models on other providers
+        const NON_VISION_PATTERNS = [/whisper/i, /tts/i, /embedding/i, /davinci/i, /babbage/i, /curie/i, /ada/i];
+        if (NON_VISION_PATTERNS.some(p => p.test(modelId))) {
+            showOcrError(`The selected model "${modelId.split('/').pop()}" does not support image input. Please switch to a vision-capable model (e.g. claude-3-5-sonnet, gpt-4o, gemini-1.5-pro) and try again.`);
+            return;
+        }
+
         try {
             let extractedText = '';
 
@@ -1452,7 +1471,12 @@ async function runOcr(file) {
             }
 
         } catch (err) {
-            showOcrError('OCR failed: ' + err.message);
+            const msg = err.message || '';
+            if (msg.includes('content must be a string') || msg.includes('does not support') || msg.includes('multimodal')) {
+                showOcrError("The selected model '" + modelId.split('/').pop() + "' does not support image input. Please switch to a vision-capable model (e.g. claude-3-5-sonnet, gpt-4o, gemini-1.5-pro).");
+            } else {
+                showOcrError('OCR failed: ' + msg);
+            }
         }
     };
     reader.readAsDataURL(file);
@@ -1470,6 +1494,171 @@ document.getElementById('ocrFileInput').addEventListener('change', (e) => {
 // Close OCR modal on backdrop click
 document.getElementById('ocrModal').addEventListener('click', (e) => {
     if (e.target === document.getElementById('ocrModal')) closeOcrModal();
+});
+
+// =============================================
+// AUTH
+// =============================================
+
+const AUTH_TOKEN_KEY = 'quasar_auth_token';
+const AUTH_USER_KEY  = 'quasar_auth_user';
+
+function getAuthToken() { return localStorage.getItem(AUTH_TOKEN_KEY); }
+function getAuthUser()  {
+    try { return JSON.parse(localStorage.getItem(AUTH_USER_KEY)); } catch { return null; }
+}
+function saveAuthSession(token, user) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+function clearAuthSession() {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+}
+
+function showAuthScreen() {
+    document.getElementById('authScreen').classList.remove('auth-hidden');
+}
+function hideAuthScreen() {
+    document.getElementById('authScreen').classList.add('auth-hidden');
+}
+
+function switchAuthTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('authLoginForm').classList.toggle('hidden', !isLogin);
+    document.getElementById('authRegisterForm').classList.toggle('hidden', isLogin);
+    document.getElementById('authTabLoginBtn').className =
+        `auth-tab-btn flex-1 py-3.5 text-sm font-semibold transition-all border-b-2 ${isLogin ? 'text-brand-500 border-brand-500' : 'text-slate-400 border-transparent hover:text-slate-600'}`;
+    document.getElementById('authTabRegisterBtn').className =
+        `auth-tab-btn flex-1 py-3.5 text-sm font-semibold transition-all border-b-2 ${!isLogin ? 'text-brand-500 border-brand-500' : 'text-slate-400 border-transparent hover:text-slate-600'}`;
+    clearAuthError();
+}
+
+function showAuthError(msg) {
+    const el = document.getElementById('authError');
+    document.getElementById('authErrorMsg').textContent = msg;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+}
+function clearAuthError() {
+    const el = document.getElementById('authError');
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+}
+
+function setAuthBtnLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    if (loading) {
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Please wait…';
+    } else {
+        btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+    }
+}
+
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.innerHTML = isPassword ? '<i class="fas fa-eye-slash text-sm"></i>' : '<i class="fas fa-eye text-sm"></i>';
+}
+
+async function handleLogin() {
+    clearAuthError();
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+
+    setAuthBtnLoading('loginBtn', true);
+    try {
+        const res  = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { showAuthError(data.error || 'Login failed.'); return; }
+
+        saveAuthSession(data.token, data.user);
+        hideAuthScreen();
+        showToast(`Welcome back, ${data.user.email}!`, 'success');
+    } catch (err) {
+        showAuthError('Could not connect to server. Please try again.');
+    } finally {
+        setAuthBtnLoading('loginBtn', false);
+    }
+}
+
+async function handleRegister() {
+    clearAuthError();
+    const email    = document.getElementById('registerEmail').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const confirm  = document.getElementById('registerConfirm').value;
+
+    if (!email || !password) { showAuthError('Please fill in all fields.'); return; }
+    if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+    if (password.length < 8)  { showAuthError('Password must be at least 8 characters.'); return; }
+
+    setAuthBtnLoading('registerBtn', true);
+    try {
+        const res  = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { showAuthError(data.error || 'Registration failed.'); return; }
+
+        saveAuthSession(data.token, data.user);
+        hideAuthScreen();
+        showToast(`Account created! Welcome, ${data.user.email}!`, 'success');
+    } catch (err) {
+        showAuthError('Could not connect to server. Please try again.');
+    } finally {
+        setAuthBtnLoading('registerBtn', false);
+    }
+}
+
+function handleLogout() {
+    if (!confirm('Sign out of Quasar AI?')) return;
+    clearAuthSession();
+    showAuthScreen();
+    // Reset form fields
+    document.getElementById('loginEmail').value    = '';
+    document.getElementById('loginPassword').value = '';
+    switchAuthTab('login');
+    showToast('Signed out successfully.', 'success');
+}
+
+async function checkAuthOnLoad() {
+    const token = getAuthToken();
+    if (!token) { showAuthScreen(); return; }
+
+    // Verify token is still valid against the server
+    try {
+        const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            hideAuthScreen(); // Token valid — let user straight in
+        } else {
+            clearAuthSession();
+            showAuthScreen();
+        }
+    } catch {
+        // Network error — if token exists trust it locally rather than locking user out
+        hideAuthScreen();
+    }
+}
+
+// Enter key support on auth forms
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+});
+document.getElementById('registerConfirm').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleRegister();
 });
 
 init();
