@@ -59,7 +59,7 @@ No build step needed. Open [quasar-ai-two.vercel.app](https://quasar-ai-two.verc
 3. Create a `.env` file in the root (never commit this):
 ```
 JWT_SECRET=your-long-random-secret
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/quasar
+MONGODB_URI=your-mongodb-uri
 ```
 4. Use [Vercel CLI](https://vercel.com/docs/cli) to run locally:
 ```bash
