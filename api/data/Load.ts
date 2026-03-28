@@ -1,14 +1,12 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectDB } from '../../lib/db.js';
-import { UserData } from '../../lib/models/UserData.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
+import { UserData } from '../../lib/models/UserData.js';
 
-/**
- * GET /api/data/load
- * Returns API keys and chat history for the authenticated user.
- */
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
     }
 
     const user = requireAuth(req, res);
@@ -20,15 +18,15 @@ export default async function handler(req, res) {
         const userData = await UserData.findOne({ userId: user.userId });
 
         if (!userData) {
-            // First time user — return empty defaults
-            return res.status(200).json({
+            res.status(200).json({
                 keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
                 selectedModel: '',
-                chats: {}
+                chats: {},
             });
+            return;
         }
 
-        return res.status(200).json({
+        res.status(200).json({
             keys: userData.keys,
             selectedModel: userData.selectedModel,
             chats: JSON.parse(userData.chats || '{}'),
@@ -36,6 +34,6 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error('Load error:', err);
-        return res.status(500).json({ error: 'Failed to load data' });
+        res.status(500).json({ error: 'Failed to load data' });
     }
 }

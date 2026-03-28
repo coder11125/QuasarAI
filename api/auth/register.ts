@@ -1,23 +1,28 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
-import { signToken } from '../../lib/jwt.js';
 import { connectDB } from '../../lib/db.js';
+import { signToken } from '../../lib/jwt.js';
 import { User } from '../../lib/models/User.js';
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
     }
 
-    const { email, password } = req.body || {};
+    const { email, password } = req.body ?? {};
 
     if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+        res.status(400).json({ error: 'Email and password are required' });
+        return;
     }
     if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return res.status(400).json({ error: 'Invalid email address' });
+        res.status(400).json({ error: 'Invalid email address' });
+        return;
     }
     if (typeof password !== 'string' || password.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        res.status(400).json({ error: 'Password must be at least 8 characters' });
+        return;
     }
 
     try {
@@ -25,7 +30,8 @@ export default async function handler(req, res) {
 
         const existing = await User.findOne({ email: email.toLowerCase().trim() });
         if (existing) {
-            return res.status(409).json({ error: 'An account with this email already exists' });
+            res.status(409).json({ error: 'An account with this email already exists' });
+            return;
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
@@ -39,14 +45,14 @@ export default async function handler(req, res) {
 
         const token = signToken({ userId: user.userId, email: user.email });
 
-        return res.status(201).json({
+        res.status(201).json({
             message: 'Account created successfully',
             token,
-            user: { userId: user.userId, email: user.email }
+            user: { userId: user.userId, email: user.email },
         });
 
     } catch (err) {
         console.error('Register error:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error' });
     }
 }

@@ -1,0 +1,38 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { connectDB } from '../../lib/db.js';
+import { requireAuth } from '../../lib/authMiddleware.js';
+import { UserData } from '../../lib/models/UserData.js';
+
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    const user = requireAuth(req, res);
+    if (!user) return;
+
+    const { keys, selectedModel, chats } = req.body ?? {};
+
+    try {
+        await connectDB();
+
+        await UserData.findOneAndUpdate(
+            { userId: user.userId },
+            {
+                userId: user.userId,
+                keys: keys ?? {},
+                selectedModel: selectedModel ?? '',
+                chats: JSON.stringify(chats ?? {}),
+                updatedAt: new Date(),
+            },
+            { upsert: true, new: true }
+        );
+
+        res.status(200).json({ message: 'Data saved successfully' });
+
+    } catch (err) {
+        console.error('Save error:', err);
+        res.status(500).json({ error: 'Failed to save data' });
+    }
+}

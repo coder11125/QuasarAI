@@ -1,11 +1,17 @@
 {
     "name": "quasar-ai",
     "version": "1.0.0",
-    "type": "module",
     "description": "Quasar AI - Multi-provider AI chat client",
     "dependencies": {
         "bcryptjs": "^2.4.3",
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "@types/node": "^20.0.0",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/jsonwebtoken": "^9.0.0",
+        "@vercel/node": "^3.0.0"
     }
 }

@@ -1,17 +1,20 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
-import { signToken } from '../../lib/jwt.js';
 import { connectDB } from '../../lib/db.js';
+import { signToken } from '../../lib/jwt.js';
 import { User } from '../../lib/models/User.js';
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
     }
 
-    const { email, password } = req.body || {};
+    const { email, password } = req.body ?? {};
 
     if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+        res.status(400).json({ error: 'Email and password are required' });
+        return;
     }
 
     const INVALID_MSG = 'Invalid email or password';
@@ -23,24 +26,26 @@ export default async function handler(req, res) {
 
         if (!user) {
             await bcrypt.hash(password, 12); // timing attack prevention
-            return res.status(401).json({ error: INVALID_MSG });
+            res.status(401).json({ error: INVALID_MSG });
+            return;
         }
 
         const passwordMatch = await bcrypt.compare(password, user.passwordHash);
         if (!passwordMatch) {
-            return res.status(401).json({ error: INVALID_MSG });
+            res.status(401).json({ error: INVALID_MSG });
+            return;
         }
 
         const token = signToken({ userId: user.userId, email: user.email });
 
-        return res.status(200).json({
+        res.status(200).json({
             message: 'Logged in successfully',
             token,
-            user: { userId: user.userId, email: user.email }
+            user: { userId: user.userId, email: user.email },
         });
 
     } catch (err) {
         console.error('Login error:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error' });
     }
 }
