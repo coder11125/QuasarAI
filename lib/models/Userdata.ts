@@ -12,7 +12,6 @@ export interface IUserData extends Document {
     userId:        string;
     keys:          IUserKeys;
     selectedModel: string;
-    chats:         string; // JSON string
     updatedAt:     Date;
 }
 
@@ -26,7 +25,6 @@ const UserDataSchema = new Schema<IUserData>({
         openrouter: { type: String, default: '' },
     },
     selectedModel: { type: String, default: '' },
-    chats:         { type: String, default: '{}' },
     updatedAt:     { type: Date, default: Date.now },
 });
 

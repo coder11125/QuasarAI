@@ -230,19 +230,26 @@ function init() {
     checkAuthOnLoad();
 }
 
-function saveState() {
+function saveState(changedChatId = null) {
     localStorage.setItem('quasar_state', JSON.stringify(state));
-    // Debounced server sync — waits 2s after last change before saving
+    // Debounced sync for keys/settings
     clearTimeout(saveState._syncTimer);
     saveState._syncTimer = setTimeout(syncToServer, 2000);
+    // Debounced sync for the specific chat that changed
+    if (changedChatId) {
+        if (!saveState._chatTimers) saveState._chatTimers = {};
+        clearTimeout(saveState._chatTimers[changedChatId]);
+        saveState._chatTimers[changedChatId] = setTimeout(() => syncChat(changedChatId), 2000);
+    }
 }
 
 // --- SERVER SYNC ---
+// Syncs keys + selectedModel to the server (chats are saved individually via syncChat)
 async function syncToServer() {
     const token = getAuthToken();
     if (!token) return;
     try {
-        await fetch('/api/data/save', {
+        const res = await fetch('/api/data/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -251,11 +258,63 @@ async function syncToServer() {
             body: JSON.stringify({
                 keys: state.keys,
                 selectedModel: state.selectedModel,
-                chats: state.chats,
             })
         });
+        if (res.status === 401) {
+            clearAuthSession();
+            showAuthScreen();
+            showToast('Your session has expired. Please sign in again.', 'error');
+        }
     } catch (err) {
         console.warn('Failed to sync to server:', err);
+    }
+}
+
+// Saves a single chat document to the server
+async function syncChat(chatId) {
+    const token = getAuthToken();
+    if (!token) return;
+    const chat = state.chats[chatId];
+    if (!chat) return;
+    try {
+        const res = await fetch('/api/chats/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                chatId:    chat.id,
+                title:     chat.title,
+                messages:  chat.messages,
+                updatedAt: chat.updatedAt,
+            })
+        });
+        if (res.status === 401) {
+            clearAuthSession();
+            showAuthScreen();
+            showToast('Your session has expired. Please sign in again.', 'error');
+        }
+    } catch (err) {
+        console.warn('Failed to sync chat:', err);
+    }
+}
+
+// Deletes a single chat from the server
+async function deleteServerChat(chatId) {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+        await fetch('/api/chats/delete', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ chatId })
+        });
+    } catch (err) {
+        console.warn('Failed to delete chat from server:', err);
     }
 }
 
@@ -263,16 +322,27 @@ async function loadFromServer() {
     const token = getAuthToken();
     if (!token) return;
     try {
-        const res = await fetch('/api/data/load', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        // Load keys/settings and chats in parallel
+        const [dataRes, chatsRes] = await Promise.all([
+            fetch('/api/data/load', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/chats/list', { headers: { 'Authorization': `Bearer ${token}` } }),
+        ]);
+
+        if (dataRes.status === 401 || chatsRes.status === 401) {
+            clearAuthSession();
+            showAuthScreen();
+            showToast('Your session has expired. Please sign in again.', 'error');
+            return;
+        }
+
+        if (!dataRes.ok || !chatsRes.ok) return;
+
+        const [data, chatsData] = await Promise.all([dataRes.json(), chatsRes.json()]);
 
         // Merge server data into state — server wins over localStorage
         if (data.keys) state.keys = { ...state.keys, ...data.keys };
         if (data.selectedModel) state.selectedModel = data.selectedModel;
-        if (data.chats && Object.keys(data.chats).length > 0) state.chats = data.chats;
+        if (chatsData.chats && Object.keys(chatsData.chats).length > 0) state.chats = chatsData.chats;
 
         // Save merged state locally
         localStorage.setItem('quasar_state', JSON.stringify(state));
@@ -544,7 +614,7 @@ function createNewChat(switchChat = true) {
         closeArtifactPanel();
         if (window.innerWidth <= 768) closeMobileSidebar();
     }
-    saveState();
+    saveState(id);
     renderChatList();
 }
 
@@ -560,6 +630,7 @@ function deleteChat(id, event) {
     event.stopPropagation();
     if (confirm('Are you sure you want to delete this chat?')) {
         delete state.chats[id];
+        deleteServerChat(id);
         if (state.currentChatId === id) {
             const remaining = Object.keys(state.chats);
             if (remaining.length > 0) selectChat(remaining[0]);
@@ -570,6 +641,8 @@ function deleteChat(id, event) {
 
 function clearAllChats() {
     if (confirm('Are you sure you want to permanently delete ALL chats?')) {
+        const ids = Object.keys(state.chats);
+        ids.forEach(id => deleteServerChat(id));
         state.chats = {};
         createNewChat(true);
         closeSettings();
@@ -581,7 +654,7 @@ function renameChat(id, event) {
     const newName = prompt('Enter new chat name:', state.chats[id].title);
     if (newName && newName.trim()) {
         state.chats[id].title = newName.trim();
-        saveState();
+        saveState(id);
         renderChatList();
         if (state.currentChatId === id) DOM.currentChatTitle.textContent = newName.trim();
     }
@@ -1061,7 +1134,7 @@ DOM.chatForm.onsubmit = async (e) => {
         appendMessageUI('ai', responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
-        saveState(); renderChatList();
+        saveState(state.currentChatId); renderChatList();
     } catch (err) {
         thinkingWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">

@@ -22,7 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             res.status(200).json({
                 keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
                 selectedModel: '',
-                chats: {},
             });
             return;
         }
@@ -30,7 +29,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         res.status(200).json({
             keys: decryptKeys(userData.keys.toObject ? userData.keys.toObject() : userData.keys),
             selectedModel: userData.selectedModel,
-            chats: JSON.parse(userData.chats || '{}'),
         });
 
     } catch (err) {

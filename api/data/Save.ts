@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const user = requireAuth(req, res);
     if (!user) return;
 
-    const { keys, selectedModel, chats } = req.body ?? {};
+    const { keys, selectedModel } = req.body ?? {};
 
     try {
         await connectDB();
@@ -24,7 +24,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 userId: user.userId,
                 keys: encryptKeys(keys ?? {}),
                 selectedModel: selectedModel ?? '',
-                chats: JSON.stringify(chats ?? {}),
                 updatedAt: new Date(),
             },
             { upsert: true, new: true }
