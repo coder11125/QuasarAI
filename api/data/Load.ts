@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectDB } from '../../lib/db.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
 import { UserData } from '../../lib/models/UserData.js';
+import { decryptKeys } from '../../lib/crypto.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'GET') {
@@ -27,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         }
 
         res.status(200).json({
-            keys: userData.keys,
+            keys: decryptKeys(userData.keys.toObject ? userData.keys.toObject() : userData.keys),
             selectedModel: userData.selectedModel,
             chats: JSON.parse(userData.chats || '{}'),
         });
