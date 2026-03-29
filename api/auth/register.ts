@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { connectDB } from '../../lib/db.js';
 import { signToken } from '../../lib/jwt.js';
 import { User } from '../../lib/models/User.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') {
@@ -27,6 +28,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     try {
         await connectDB();
+
+        const allowed = await checkRateLimit('register', req, res);
+        if (!allowed) return;
 
         const existing = await User.findOne({ email: email.toLowerCase().trim() });
         if (existing) {
