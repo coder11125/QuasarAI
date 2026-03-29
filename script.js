@@ -89,6 +89,16 @@ marked.use({
     })()
 });
 
+// Escapes user-controlled strings before injecting into innerHTML
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Copy button for prose code blocks
 function copyProseCode(btn) {
     const code = btn.closest('.prose-code-block').querySelector('code').textContent;
@@ -317,6 +327,7 @@ async function deleteServerChat(chatId) {
         console.warn('Failed to delete chat from server:', err);
     }
 }
+
 
 async function loadFromServer() {
     const token = getAuthToken();
@@ -683,7 +694,7 @@ function renderChatList() {
         div.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden">
                 <i class="fas fa-message text-[12px] opacity-70"></i>
-                <span class="truncate text-sm">${chat.title}</span>
+                <span class="truncate text-sm">${escapeHtml(chat.title)}</span>
             </div>
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onclick="renameChat('${id}', event)" class="p-1.5 text-slate-400 hover:text-brand-500 rounded bg-slate-50 dark:bg-slate-700/50"><i class="fas fa-pen text-[10px]"></i></button>
@@ -807,7 +818,7 @@ function appendMessageUI(role, text, attachment = null) {
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
-            imgDiv.innerHTML = `<img src="${attachment.dataUrl}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy">`;
+            imgDiv.innerHTML = `<img src="${escapeHtml(attachment.dataUrl)}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy">`;
             bubble.appendChild(imgDiv);
         }
         const textDiv = document.createElement('div');
@@ -938,7 +949,7 @@ function renderProviderSettings() {
             </div>
             <div class="flex flex-col sm:flex-row gap-2 mt-1">
                 <div class="relative flex-grow">
-                    <input type="password" id="key-${provKey}" value="${currentKey}" placeholder="API Key" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-3 pr-10 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 ring-brand-500 text-slate-800 dark:text-slate-200 transition-all font-mono">
+                    <input type="password" id="key-${provKey}" value="${escapeHtml(currentKey)}" placeholder="API Key" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-3 pr-10 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 ring-brand-500 text-slate-800 dark:text-slate-200 transition-all font-mono">
                     <a href="${info.link}" target="_blank" class="absolute right-3 top-2.5 text-slate-400 hover:text-brand-500"><i class="fas fa-external-link-alt text-xs"></i></a>
                 </div>
                 <button onclick="saveAndFetch('${provKey}')" class="px-4 py-2 bg-slate-800 hover:bg-black dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap shadow-sm flex items-center justify-center gap-2">
@@ -989,7 +1000,7 @@ async function saveAndFetch(provider) {
         statusDiv.innerHTML = '<span class="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800"><i class="fas fa-check-circle mr-1"></i> Connected</span>';
         showToast(`Successfully connected to ${DEFAULT_PROVIDERS[provider].name}.`, 'success');
     } catch (err) {
-        showToast(`Error connecting to ${provider}: ${err.message}`);
+        showToast(`Error connecting to ${escapeHtml(provider)}: ${escapeHtml(err.message)}`);
         statusDiv.innerHTML = '<span class="text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded border border-red-200 dark:border-red-800"><i class="fas fa-exclamation-circle mr-1"></i> Error</span>';
     } finally {
         icon.className = 'fas fa-link';
