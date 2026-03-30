@@ -14,6 +14,13 @@ A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, Ope
 - **Cross-Device Sync** — API keys, chat history, and selected model sync across all your devices
 - **MongoDB Persistence** — All data stored in the cloud, never lost on browser clear
 
+### 🛡️ **Security**
+- **Encrypted API Keys** — All provider API keys are encrypted with AES-256-GCM before being stored in MongoDB
+- **Rate Limiting** — Login and registration endpoints are rate-limited per IP (10 attempts per 15 minutes) to prevent brute force attacks
+- **Timing-Safe Login** — Prevents user enumeration via timing attacks
+- **Input Sanitization** — All user-controlled values are escaped before being injected into the DOM
+- **Graceful Session Expiry** — Expired tokens trigger a clean logout with a clear message rather than a silent failure
+
 ### 🤖 **Multi-Provider Support**
 Seamlessly switch between leading AI providers without leaving the app:
 - **Google Gemini** — Gemini 2.5 Pro, Flash, and more
@@ -26,7 +33,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Full Markdown Rendering** — Code blocks with syntax highlighting, tables, lists, bold/italic, links
 - **Image Attachments** — Upload images and leverage vision capabilities
 - **Voice Input** — Hands-free messaging via Web Speech API
-- **Persistent Chat History** — Synced to MongoDB, available on any device
+- **Persistent Chat History** — Synced to MongoDB per-chat, available on any device
 - **Auto-expanding Textarea** — Input grows as you type
 - **Message Copy** — One-click copy of any message
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
@@ -114,16 +121,24 @@ Seamlessly switch between leading AI providers without leaving the app:
 │   │   ├── register.ts  # POST /api/auth/register
 │   │   ├── login.ts     # POST /api/auth/login
 │   │   └── me.ts        # GET  /api/auth/me
-│   └── data/
-│       ├── save.ts      # POST /api/data/save
-│       └── load.ts      # GET  /api/data/load
+│   ├── data/
+│   │   ├── save.ts      # POST /api/data/save  (keys + selectedModel)
+│   │   └── load.ts      # GET  /api/data/load  (keys + selectedModel)
+│   └── chats/
+│       ├── list.ts      # GET    /api/chats/list
+│       ├── save.ts      # POST   /api/chats/save
+│       └── delete.ts    # DELETE /api/chats/delete
 └── lib/
     ├── db.ts             # MongoDB connection
     ├── jwt.ts            # Token sign/verify
+    ├── crypto.ts         # AES-256-GCM encrypt/decrypt
+    ├── rateLimit.ts      # Per-IP rate limiting
     ├── authMiddleware.ts # requireAuth() helper
     └── models/
         ├── User.ts       # User schema
-        └── UserData.ts   # API keys + chats schema
+        ├── UserData.ts   # API keys + selectedModel schema
+        ├── Chat.ts       # Per-chat schema
+        └── RateLimit.ts  # Rate limit tracking schema (TTL-indexed)
 ```
 
 **Stack:**
@@ -144,6 +159,7 @@ Add these in your Vercel project settings:
 |---|---|
 | `JWT_SECRET` | Long random string for signing tokens — `openssl rand -base64 48` |
 | `MONGODB_URI` | MongoDB Atlas connection string |
+| `ENCRYPTION_KEY` | 32-byte hex string for encrypting API keys — `openssl rand -hex 32` |
 
 ### Deploy
 1. Fork this repository
@@ -160,6 +176,8 @@ Add these in your Vercel project settings:
 3. **Make changes** and test thoroughly
 4. **Commit** with clear messages
 5. **Push** and open a **Pull Request**
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ### Areas for Contribution
 - Bug fixes and optimizations

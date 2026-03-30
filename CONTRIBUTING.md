@@ -34,16 +34,24 @@ quasar-ai/
 │   │   ├── register.ts   # POST /api/auth/register
 │   │   ├── login.ts      # POST /api/auth/login
 │   │   └── me.ts         # GET  /api/auth/me
-│   └── data/
-│       ├── save.ts       # POST /api/data/save
-│       └── load.ts       # GET  /api/data/load
+│   ├── data/
+│   │   ├── save.ts       # POST /api/data/save  (keys + selectedModel)
+│   │   └── load.ts       # GET  /api/data/load  (keys + selectedModel)
+│   └── chats/
+│       ├── list.ts       # GET    /api/chats/list   (all chats for user)
+│       ├── save.ts       # POST   /api/chats/save   (upsert one chat)
+│       └── delete.ts     # DELETE /api/chats/delete (delete one chat)
 └── lib/
     ├── db.ts              # MongoDB connection helper
     ├── jwt.ts             # Token sign/verify
+    ├── crypto.ts          # AES-256-GCM encrypt/decrypt for API keys
     ├── authMiddleware.ts  # requireAuth() for protecting routes
+    ├── rateLimit.ts       # checkRateLimit() for auth routes
     └── models/
         ├── User.ts        # User mongoose schema
-        └── UserData.ts    # API keys + chats mongoose schema
+        ├── UserData.ts    # API keys + selectedModel schema
+        ├── Chat.ts        # Per-chat schema (one document per chat)
+        └── RateLimit.ts   # Rate limit tracking schema (TTL-indexed)
 ```
 
 ---
@@ -60,7 +68,15 @@ No build step needed. Open [quasar-ai-two.vercel.app](https://quasar-ai-two.verc
 ```
 JWT_SECRET=your-long-random-secret
 MONGODB_URI=your-mongodb-uri
+ENCRYPTION_KEY=your-64-char-hex-string
 ```
+
+Generate each secret:
+```bash
+openssl rand -base64 48   # JWT_SECRET
+openssl rand -hex 32      # ENCRYPTION_KEY
+```
+
 4. Use [Vercel CLI](https://vercel.com/docs/cli) to run locally:
 ```bash
 npm i -g vercel
@@ -75,13 +91,13 @@ This starts a local server that mirrors the Vercel serverless environment includ
 
 ### Frontend State
 
-A single `state` object is the source of truth for the frontend. It is persisted to `localStorage` on every mutation via `saveState()`, which also debounces a sync to MongoDB every 2 seconds.
+A single `state` object is the source of truth for the frontend. It is persisted to `localStorage` on every mutation via `saveState()`, which also debounces syncs to MongoDB.
 
 ```js
 let state = {
     keys: {},         // Provider API keys
     models: {},       // Available models per provider
-    chats: {},        // All chat histories, keyed by ID
+    chats: {},        // All chat histories, keyed by chatId
     currentChatId,
     selectedModel,    // Format: "providerKey|modelId"
     theme,
@@ -95,14 +111,19 @@ let state = {
 User makes change
       │
       ▼
-saveState()
+saveState(changedChatId?)
       │
       ├─ localStorage (instant, local cache)
       │
-      └─ syncToServer() after 2s debounce
+      ├─ syncToServer() after 2s debounce
+      │       │
+      │       ▼
+      │   POST /api/data/save → MongoDB (keys + selectedModel only)
+      │
+      └─ syncChat(chatId) after 2s debounce  [if changedChatId provided]
               │
               ▼
-         POST /api/data/save → MongoDB
+          POST /api/chats/save → MongoDB (single chat document)
 ```
 
 On login/page load:
@@ -114,7 +135,8 @@ checkAuthOnLoad()
       │        └─ yes → hideAuthScreen() → loadFromServer()
       │                        │
       │                        ▼
-      │               GET /api/data/load → MongoDB
+      │               GET /api/data/load  ─┐
+      │               GET /api/chats/list ─┘ (parallel)
       │                        │
       │                        ▼
       │               merge into state → re-render UI
@@ -128,7 +150,7 @@ checkAuthOnLoad()
 |---|---|
 | State & Constants | `LANG_ICONS`, `PREVIEWABLE_LANGS`, `SYSTEM_PROMPT`, initial state |
 | Auth | `handleLogin()`, `handleRegister()`, `handleLogout()`, `checkAuthOnLoad()` |
-| Server Sync | `syncToServer()`, `loadFromServer()` |
+| Server Sync | `syncToServer()`, `syncChat()`, `deleteServerChat()`, `loadFromServer()` |
 | Init | `init()` — bootstraps everything, calls `checkAuthOnLoad()` |
 | Artifact Panel | `openArtifactPanel()`, `closeArtifactPanel()`, `switchPanelTab()` |
 | Message UI | `appendMessageUI()`, `parseMessageSegments()`, `buildArtifactCard()` |
@@ -159,6 +181,9 @@ parseMessageSegments()   ← splits into { type: 'text' | 'code', content, lang 
 POST /api/auth/register or /api/auth/login
       │
       ▼
+checkRateLimit() → 10 attempts per IP per 15 min (stored in MongoDB)
+      │
+      ▼
 connectDB() → MongoDB
       │
       ▼
@@ -171,7 +196,11 @@ signToken() → JWT (7d expiry)
 { token, user } → frontend saves to localStorage
 ```
 
-Protected routes use `requireAuth(req, res)` from `lib/authMiddleware.ts` which extracts and verifies the Bearer token.
+Protected routes use `requireAuth(req, res)` from `lib/authMiddleware.ts` which extracts and verifies the Bearer token. A 401 response on any authenticated request triggers a graceful logout on the frontend with a "session expired" toast.
+
+### API Key Encryption
+
+API keys are encrypted with AES-256-GCM before being written to MongoDB, using the `ENCRYPTION_KEY` environment variable. The format stored in the DB is `iv:authTag:ciphertext` (all hex). Decryption happens in `api/data/load.ts` before keys are returned to the frontend. Keys that are not in this format (e.g. existing plaintext keys during migration) are returned as-is.
 
 ---
 
@@ -182,14 +211,17 @@ Protected routes use `requireAuth(req, res)` from `lib/authMiddleware.ts` which 
 - **No dependencies beyond CDN links.** Tailwind CSS, marked.js, and Font Awesome are loaded via CDN. Do not introduce a bundler without discussion.
 - **Keep `script.js` organized by section.** Each area has a `// --- SECTION NAME ---` comment header.
 - **Avoid touching the DOM directly from the API layer.** `callAIProvider()` returns a string — UI concerns live in the message/chat functions.
-- **Always call `saveState()` after mutating `state`.** This ensures both localStorage and MongoDB stay in sync.
+- **Always call `saveState(chatId)` after mutating a chat**, and `saveState()` (no argument) for non-chat state changes (theme, model selection, etc.). This ensures both localStorage and MongoDB stay in sync correctly.
+- **Always use `escapeHtml()` before injecting user-controlled strings into `innerHTML`.** This includes chat titles, file names, API key values, and error messages. Values from constants or the app's own code do not need escaping.
 
 ### Backend
 
 - **All backend files are TypeScript** (`.ts`) — do not add `.js` files to `api/` or `lib/`.
 - **Always call `await connectDB()`** at the top of every API handler before any DB operations. This handles connection caching for serverless environments.
 - **Always use `requireAuth(req, res)`** to protect routes that need authentication. It returns `null` and sends a 401 automatically if the token is missing or invalid.
+- **Always use `checkRateLimit(action, req, res)`** at the top of auth endpoints (login, register). It returns `false` and sends a 429 automatically if the limit is exceeded.
 - **Never log sensitive data** (passwords, tokens, API keys) in `console.log` or `console.error`.
+- **Never store API keys in plaintext.** Use `encryptKeys()` from `lib/crypto.ts` before writing to MongoDB and `decryptKeys()` after reading.
 
 ### Code Style
 
@@ -316,11 +348,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 4. For API layer changes: test with at least one real provider
 5. Keep commits focused — one logical change per commit
 6. Open a PR against `main` with:
-   - A clear title (`feat:`, `fix:`, `refactor:`, `docs:` prefix)
+   - A clear title (`feat:`, `fix:`, `refactor:`, `docs:`, `security:` prefix)
    - A short description of what changed and why
    - Screenshots or a screen recording for visual changes
 
-PRs that touch `callAIProvider()`, `SYSTEM_PROMPT`, or any auth/database logic should clearly note what was tested.
+PRs that touch `callAIProvider()`, `SYSTEM_PROMPT`, `lib/crypto.ts`, or any auth/database logic should clearly note what was tested.
 
 ---
 
