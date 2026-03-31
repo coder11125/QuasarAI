@@ -19,19 +19,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             .sort({ updatedAt: -1 })
             .lean();
 
-        // Return as a map keyed by chatId — matches the frontend state.chats shape
         const chatsMap: Record<string, object> = {};
         for (const chat of chats) {
             chatsMap[chat.chatId] = {
                 id:        chat.chatId,
                 title:     chat.title,
                 messages:  chat.messages,
+                folderId:  chat.folderId ?? null,
                 updatedAt: chat.updatedAt.getTime(),
             };
         }
 
         res.status(200).json({ chats: chatsMap });
-
     } catch (err) {
         console.error('Chat list error:', err);
         res.status(500).json({ error: 'Failed to load chats' });
