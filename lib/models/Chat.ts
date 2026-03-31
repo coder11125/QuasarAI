@@ -15,7 +15,6 @@ export interface IChat extends Document {
     chatId:    string;
     title:     string;
     messages:  IMessage[];
-    folderId?: string;   // optional — undefined means "no folder" (Unfiled)
     updatedAt: Date;
 }
 
@@ -30,13 +29,10 @@ const ChatSchema = new Schema<IChat>({
     chatId:    { type: String, required: true, unique: true },
     title:     { type: String, default: 'New Chat' },
     messages:  { type: [MessageSchema], default: [] },
-    folderId:  { type: String, default: null },   // null = unfiled
     updatedAt: { type: Date, default: Date.now },
 });
 
 // Compound index for fast per-user chat listing
 ChatSchema.index({ userId: 1, updatedAt: -1 });
-// Index for fast folder queries
-ChatSchema.index({ userId: 1, folderId: 1 });
 
 export const Chat = mongoose.models.Chat || mongoose.model<IChat>('Chat', ChatSchema);

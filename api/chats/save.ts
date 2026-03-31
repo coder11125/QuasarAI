@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const user = requireAuth(req, res);
     if (!user) return;
 
-    const { chatId, title, messages, folderId } = req.body ?? {};
+    const { chatId, title, messages, updatedAt } = req.body ?? {};
 
     if (!chatId || typeof chatId !== 'string') {
         res.status(400).json({ error: 'chatId is required' });
@@ -23,19 +23,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         await connectDB();
 
         await Chat.findOneAndUpdate(
-            { chatId, userId: user.userId },
+            { chatId, userId: user.userId }, // userId check prevents users overwriting each other's chats
             {
-                userId:   user.userId,
+                userId:    user.userId,
                 chatId,
-                title:    typeof title === 'string' ? title.trim() : 'New Chat',
-                messages: Array.isArray(messages) ? messages : [],
-                folderId: typeof folderId === 'string' ? folderId : null,
-                updatedAt: new Date(),
+                title:     typeof title === 'string' ? title.trim() : 'New Chat',
+                messages:  Array.isArray(messages) ? messages : [],
+                updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
             },
             { upsert: true, new: true }
         );
 
         res.status(200).json({ message: 'Chat saved' });
+
     } catch (err) {
         console.error('Chat save error:', err);
         res.status(500).json({ error: 'Failed to save chat' });
