@@ -12,6 +12,7 @@ Thanks for your interest in contributing! Quasar AI is a multi-provider AI chat 
 - [Development Guidelines](#development-guidelines)
 - [Adding a New AI Provider](#adding-a-new-ai-provider)
 - [Working with the Artifact Panel](#working-with-the-artifact-panel)
+- [Working with Folders](#working-with-folders)
 - [Adding a New API Route](#adding-a-new-api-route)
 - [Styling Conventions](#styling-conventions)
 - [Submitting a Pull Request](#submitting-a-pull-request)
@@ -37,10 +38,14 @@ quasar-ai/
 │   ├── data/
 │   │   ├── save.ts       # POST /api/data/save  (keys + selectedModel)
 │   │   └── load.ts       # GET  /api/data/load  (keys + selectedModel)
-│   └── chats/
-│       ├── list.ts       # GET    /api/chats/list   (all chats for user)
-│       ├── save.ts       # POST   /api/chats/save   (upsert one chat)
-│       └── delete.ts     # DELETE /api/chats/delete (delete one chat)
+│   ├── chats/
+│   │   ├── list.ts       # GET    /api/chats/list   (all chats for user)
+│   │   ├── save.ts       # POST   /api/chats/save   (upsert one chat)
+│   │   └── delete.ts     # DELETE /api/chats/delete (delete one chat)
+│   └── folders/
+│       ├── list.ts       # GET    /api/folders/list   (all folders for user)
+│       ├── save.ts       # POST   /api/folders/save   (upsert one folder)
+│       └── delete.ts     # DELETE /api/folders/delete (delete folder, unassign chats)
 └── lib/
     ├── db.ts              # MongoDB connection helper
     ├── jwt.ts             # Token sign/verify
@@ -50,7 +55,8 @@ quasar-ai/
     └── models/
         ├── User.ts        # User mongoose schema
         ├── UserData.ts    # API keys + selectedModel schema
-        ├── Chat.ts        # Per-chat schema (one document per chat)
+        ├── Chat.ts        # Per-chat schema (one document per chat, includes folderId)
+        ├── Folder.ts      # Folder schema (name, color, userId)
         └── RateLimit.ts   # Rate limit tracking schema (TTL-indexed)
 ```
 
@@ -98,12 +104,15 @@ let state = {
     keys: {},         // Provider API keys
     models: {},       // Available models per provider
     chats: {},        // All chat histories, keyed by chatId
+    folders: {},      // All folders, keyed by folderId: { id, name, color }
     currentChatId,
     selectedModel,    // Format: "providerKey|modelId"
     theme,
     sidebarCollapsed
 };
 ```
+
+Each chat object carries an optional `folderId` field pointing to the folder it belongs to. `null` or undefined means the chat is unfiled.
 
 ### Data Flow
 
@@ -123,7 +132,11 @@ saveState(changedChatId?)
       └─ syncChat(chatId) after 2s debounce  [if changedChatId provided]
               │
               ▼
-          POST /api/chats/save → MongoDB (single chat document)
+          POST /api/chats/save → MongoDB (single chat document, includes folderId)
+
+Folder changes sync immediately (not debounced — folders are lightweight):
+      syncFolder(folderId) → POST /api/folders/save
+      deleteServerFolder(folderId) → DELETE /api/folders/delete
 ```
 
 On login/page load:
@@ -135,8 +148,9 @@ checkAuthOnLoad()
       │        └─ yes → hideAuthScreen() → loadFromServer()
       │                        │
       │                        ▼
-      │               GET /api/data/load  ─┐
-      │               GET /api/chats/list ─┘ (parallel)
+      │               GET /api/data/load    ─┐
+      │               GET /api/chats/list   ─┤ (parallel)
+      │               GET /api/folders/list ─┘
       │                        │
       │                        ▼
       │               merge into state → re-render UI
@@ -148,16 +162,26 @@ checkAuthOnLoad()
 
 | Section | Responsibility |
 |---|---|
-| State & Constants | `LANG_ICONS`, `PREVIEWABLE_LANGS`, `SYSTEM_PROMPT`, initial state |
+| State & Constants | `LANG_ICONS`, `PREVIEWABLE_LANGS`, `FOLDER_COLORS`, `SYSTEM_PROMPT`, initial state |
 | Auth | `handleLogin()`, `handleRegister()`, `handleLogout()`, `checkAuthOnLoad()` |
-| Server Sync | `syncToServer()`, `syncChat()`, `deleteServerChat()`, `loadFromServer()` |
+| Server Sync | `syncToServer()`, `syncChat()`, `syncFolder()`, `deleteServerChat()`, `deleteServerFolder()`, `loadFromServer()` |
 | Init | `init()` — bootstraps everything, calls `checkAuthOnLoad()` |
 | Artifact Panel | `openArtifactPanel()`, `closeArtifactPanel()`, `switchPanelTab()` |
 | Message UI | `appendMessageUI()`, `parseMessageSegments()`, `buildArtifactCard()` |
-| Chat Management | CRUD for chats, `renderChat()`, `renderChatList()` |
+| Chat Management | CRUD for chats, `renderChat()`, `renderChatList()`, `buildChatItem()` |
+| Folder Management | `createFolder()`, `renameFolder()`, `cycleFolderColor()`, `deleteFolder()`, `moveChatToFolder()`, `showFolderPicker()` |
 | API Layer | `callAIProvider()` — normalized interface for all providers |
 | Settings | `renderProviderSettings()`, `saveAndFetch()`, `updateModelSelector()` |
 | OCR | `runOcr()`, `openOcrModal()`, `insertOcrText()` |
+
+### Folder Collapse State
+
+The sidebar folder collapse state is stored in a module-level `Set` called `collapsedFolders`. It is session-only — intentionally not persisted to `localStorage` or the server, so the sidebar always opens fully expanded after a page reload.
+
+```js
+const collapsedFolders = new Set();
+// contains folderId strings, plus '__unfiled__' for the Unfiled section
+```
 
 ### Message Rendering Flow
 
@@ -211,8 +235,10 @@ API keys are encrypted with AES-256-GCM before being written to MongoDB, using t
 - **No dependencies beyond CDN links.** Tailwind CSS, marked.js, and Font Awesome are loaded via CDN. Do not introduce a bundler without discussion.
 - **Keep `script.js` organized by section.** Each area has a `// --- SECTION NAME ---` comment header.
 - **Avoid touching the DOM directly from the API layer.** `callAIProvider()` returns a string — UI concerns live in the message/chat functions.
-- **Always call `saveState(chatId)` after mutating a chat**, and `saveState()` (no argument) for non-chat state changes (theme, model selection, etc.). This ensures both localStorage and MongoDB stay in sync correctly.
-- **Always use `escapeHtml()` before injecting user-controlled strings into `innerHTML`.** This includes chat titles, file names, API key values, and error messages. Values from constants or the app's own code do not need escaping.
+- **Always call `saveState(chatId)` after mutating a chat**, and `saveState()` (no argument) for non-chat state changes (theme, model selection, folder creation, etc.). This ensures both localStorage and MongoDB stay in sync correctly.
+- **Always use `escapeHtml()` before injecting user-controlled strings into `innerHTML`.** This includes chat titles, folder names, file names, API key values, and error messages. Values from constants or the app's own code do not need escaping.
+- **Tailwind CDN limitation.** The CDN build only generates classes it finds in the static HTML. Classes injected dynamically via JS will not be generated unless they are added to the `safelist` in `tailwind.config` inside `index.html`. When adding new Tailwind classes in JS, check whether they already appear in the static HTML — if not, add them to the safelist. Currently safelisted: `rotate-90`, `ml-4`.
+- **Folder sync is immediate, not debounced.** Folders are small and infrequently changed, so `syncFolder()` and `deleteServerFolder()` are called directly rather than via the debounce timer. Chat sync remains debounced at 2 seconds.
 
 ### Backend
 
@@ -220,6 +246,7 @@ API keys are encrypted with AES-256-GCM before being written to MongoDB, using t
 - **Always call `await connectDB()`** at the top of every API handler before any DB operations. This handles connection caching for serverless environments.
 - **Always use `requireAuth(req, res)`** to protect routes that need authentication. It returns `null` and sends a 401 automatically if the token is missing or invalid.
 - **Always use `checkRateLimit(action, req, res)`** at the top of auth endpoints (login, register). It returns `false` and sends a 429 automatically if the limit is exceeded.
+- **Use `$set` / `$setOnInsert` for upserts**, not a flat update document. A flat document replaces all fields on update, which can silently overwrite immutable identity fields like `userId` and `folderId`. See `api/folders/save.ts` for the correct pattern.
 - **Never log sensitive data** (passwords, tokens, API keys) in `console.log` or `console.error`.
 - **Never store API keys in plaintext.** Use `encryptKeys()` from `lib/crypto.ts` before writing to MongoDB and `decryptKeys()` after reading.
 
@@ -298,6 +325,64 @@ const LANG_ICONS = {
 
 ---
 
+## Working with Folders
+
+### Data model
+
+Folders are stored in `state.folders` as a flat map keyed by `folderId`:
+
+```js
+state.folders = {
+    'abc123': { id: 'abc123', name: 'Work', color: 'blue' },
+    'def456': { id: 'def456', name: 'Personal', color: 'green' },
+};
+```
+
+Each chat optionally carries a `folderId` pointing to a folder:
+
+```js
+state.chats['xyz789'] = {
+    id: 'xyz789',
+    title: 'My chat',
+    messages: [...],
+    folderId: 'abc123',   // null or undefined = Unfiled
+    updatedAt: 1234567890,
+};
+```
+
+### Rendering
+
+`renderChatList()` buckets all chats by `folderId`, then renders a folder header row followed by its indented chat items for each folder, followed by an Unfiled section for chats with no folder. When no folders exist, it falls back to the original flat list with no headers — so existing users see no UI change until they create their first folder.
+
+`buildChatItem(id, indented)` is the extracted helper that renders a single chat row. Pass `indented = true` when rendering inside a folder or the Unfiled section to apply `ml-4` indentation.
+
+### Adding folder colors
+
+Colors are defined in `FOLDER_COLORS` in `script.js` as hex values (not Tailwind classes) to avoid Tailwind CDN generation issues. To add a new color:
+
+```js
+const FOLDER_COLORS = {
+    ...,
+    yourcolor: { dot: '#hexvalue', icon: '#hexvalue', label: '#hexvalue' },
+};
+```
+
+Also add `'yourcolor'` to the `ALLOWED_COLORS` array in `api/folders/save.ts` so the backend accepts it.
+
+### Backend
+
+The folder backend follows the same pattern as the chat backend:
+
+| Route | File | What it does |
+|---|---|---|
+| `GET /api/folders/list` | `api/folders/list.ts` | Returns all folders for the authed user as a map |
+| `POST /api/folders/save` | `api/folders/save.ts` | Upserts a folder (create or update name/color) |
+| `DELETE /api/folders/delete` | `api/folders/delete.ts` | Deletes the folder and unassigns all its chats via `Chat.updateMany` |
+
+When a folder is deleted server-side, the handler unassigns chats by `$unset`-ing `folderId` on all matching chat documents in the same request, keeping the DB consistent without a separate cleanup job.
+
+---
+
 ## Adding a New API Route
 
 1. Create a new `.ts` file in `api/` (e.g. `api/feature/action.ts`)
@@ -326,7 +411,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 }
 ```
-3. Call it from the frontend using `getAuthToken()` in the `Authorization` header.
+3. For upserts, always use `$set` / `$setOnInsert` rather than a flat update document:
+```ts
+await Model.findOneAndUpdate(
+    { docId, userId: user.userId },
+    {
+        $set:         { mutableField: value },
+        $setOnInsert: { userId: user.userId, docId },
+    },
+    { upsert: true, new: true }
+);
+```
+4. Call the new route from the frontend using `getAuthToken()` in the `Authorization` header.
 
 ---
 
@@ -336,6 +432,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 - **`styles.css`** handles animations, custom components (`.artifact-card`, `.artifact-panel`, `.resize-handle`, `#authScreen`), scrollbar styling, and transitions.
 - Use Tailwind's `dark:` prefix for dark mode in HTML. Use CSS custom properties for dark mode inside `styles.css`.
 - Do not add `!important` unless explicitly overriding a Tailwind base style.
+- **Dynamic Tailwind classes** injected via JS must be added to the `safelist` in `tailwind.config` in `index.html`, or use inline `style="..."` attributes instead. The folder UI uses inline hex styles for colors specifically to avoid this limitation.
 - Code area background colors: `#0d1117` (panel), `#161b22` (header) — matching GitHub's dark palette. Keep code-adjacent UI consistent.
 
 ---
@@ -352,7 +449,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
    - A short description of what changed and why
    - Screenshots or a screen recording for visual changes
 
-PRs that touch `callAIProvider()`, `SYSTEM_PROMPT`, `lib/crypto.ts`, or any auth/database logic should clearly note what was tested.
+PRs that touch `callAIProvider()`, `SYSTEM_PROMPT`, `lib/crypto.ts`, `renderChatList()`, or any auth/database logic should clearly note what was tested.
 
 ---
 

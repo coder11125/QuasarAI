@@ -14,7 +14,7 @@ A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, Ope
 ### 🔐 **Accounts & Cross-Device Sync**
 - **Authentication** — Register and sign in with email and password
 - **JWT Sessions** — Secure token-based auth with 7-day sessions
-- **Cross-Device Sync** — API keys, chat history, and selected model sync across all your devices
+- **Cross-Device Sync** — API keys, chat history, folders, and selected model sync across all your devices
 - **MongoDB Persistence** — All data stored in the cloud, never lost on browser clear
 
 ### 🛡️ **Security**
@@ -39,10 +39,21 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Persistent Chat History** — Synced to MongoDB per-chat, available on any device
 - **Auto-expanding Textarea** — Input grows as you type
 - **Message Copy** — One-click copy of any message
+- **Edit & Regenerate** — Edit any sent message and resend, or regenerate any AI response
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes the chat title
 - **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG
 - **OCR** — Extract text from images using vision-capable models
+
+### 📁 **Chat Folders**
+- **Create Folders** — Organise chats into colour-coded folders
+- **8 Folder Colors** — Gray, blue, green, amber, red, purple, pink, and teal
+- **Collapsible Sections** — Click any folder to collapse or expand it
+- **Move Chats** — Hover over any chat and click the folder icon to assign or reassign it
+- **New Chat in Folder** — Click the + button on a folder header to create a chat directly inside it
+- **Rename & Recolor** — Rename folders or cycle through colors with one click
+- **Safe Delete** — Deleting a folder moves its chats to Unfiled rather than deleting them
+- **Synced** — Folders and chat assignments persist to MongoDB and sync across devices
 
 ### 🎨 **Beautiful, Responsive UI**
 - **Glassmorphism Design** — Frosted glass panels with subtle backdrop blur
@@ -99,8 +110,18 @@ Seamlessly switch between leading AI providers without leaving the app:
 ### Manage Chats
 - **Rename** — Hover over a chat in the sidebar, click ✏️
 - **Delete** — Hover over a chat, click 🗑️
+- **Move to folder** — Hover over a chat, click the 📁 folder icon
 - **New Chat** — Click **+ New Chat**
-- **Search** — Use the search bar in the sidebar to find past chats
+- **Search** — Use the search bar in the sidebar to find past chats (searches across all folders)
+
+### Folders
+- **Create** — Click **New Folder** in the sidebar and enter a name
+- **Collapse/Expand** — Click the folder header to toggle
+- **New chat inside a folder** — Click the **+** icon on the folder header
+- **Rename** — Hover the folder header, click ✏️
+- **Change color** — Hover the folder header, click 🎨 to cycle through 8 colors
+- **Delete** — Hover the folder header, click 🗑️ (chats are moved to Unfiled, not deleted)
+- **Move a chat** — Hover any chat item, click the folder icon to open the folder picker
 
 ### Code & Artifacts
 - All code responses appear as artifact cards in the chat
@@ -127,10 +148,14 @@ Seamlessly switch between leading AI providers without leaving the app:
 │   ├── data/
 │   │   ├── save.ts      # POST /api/data/save  (keys + selectedModel)
 │   │   └── load.ts      # GET  /api/data/load  (keys + selectedModel)
-│   └── chats/
-│       ├── list.ts      # GET    /api/chats/list
-│       ├── save.ts      # POST   /api/chats/save
-│       └── delete.ts    # DELETE /api/chats/delete
+│   ├── chats/
+│   │   ├── list.ts      # GET    /api/chats/list
+│   │   ├── save.ts      # POST   /api/chats/save
+│   │   └── delete.ts    # DELETE /api/chats/delete
+│   └── folders/
+│       ├── list.ts      # GET    /api/folders/list
+│       ├── save.ts      # POST   /api/folders/save  (upsert)
+│       └── delete.ts    # DELETE /api/folders/delete
 └── lib/
     ├── db.ts             # MongoDB connection
     ├── jwt.ts            # Token sign/verify
@@ -140,7 +165,8 @@ Seamlessly switch between leading AI providers without leaving the app:
     └── models/
         ├── User.ts       # User schema
         ├── UserData.ts   # API keys + selectedModel schema
-        ├── Chat.ts       # Per-chat schema
+        ├── Chat.ts       # Per-chat schema (includes folderId)
+        ├── Folder.ts     # Folder schema
         └── RateLimit.ts  # Rate limit tracking schema (TTL-indexed)
 ```
 
