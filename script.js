@@ -112,11 +112,26 @@ let state = {
     keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
     models: { google: [], openai: [], anthropic: [], groq: [], openrouter: [] },
     chats: {},
+    folders: {},   // keyed by folderId → { id, name, color }
     currentChatId: null,
     selectedModel: '',
     theme: 'light',
     sidebarCollapsed: false,
     searchQuery: ''
+};
+
+// Tracks sidebar folder collapse state (session-only, not persisted)
+const collapsedFolders = new Set();
+
+const FOLDER_COLORS = {
+    gray:   { dot: '#94a3b8', icon: '#94a3b8', label: '#64748b' },
+    blue:   { dot: '#60a5fa', icon: '#60a5fa', label: '#3b82f6' },
+    green:  { dot: '#4ade80', icon: '#4ade80', label: '#16a34a' },
+    amber:  { dot: '#fbbf24', icon: '#fbbf24', label: '#d97706' },
+    red:    { dot: '#f87171', icon: '#f87171', label: '#dc2626' },
+    purple: { dot: '#c084fc', icon: '#c084fc', label: '#9333ea' },
+    pink:   { dot: '#f472b6', icon: '#f472b6', label: '#db2777' },
+    teal:   { dot: '#2dd4bf', icon: '#2dd4bf', label: '#0d9488' },
 };
 
 let currentAttachment = null;
@@ -209,6 +224,8 @@ function init() {
     if (saved) {
         const parsed = JSON.parse(saved);
         state = { ...state, ...parsed };
+        // Ensure folders exists for users with old localStorage state
+        if (!state.folders) state.folders = {};
     }
     if (state.theme === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         setTheme('dark');
@@ -294,10 +311,10 @@ async function syncChat(chatId) {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                chatId:    chat.id,
-                title:     chat.title,
-                messages:  chat.messages,
-                updatedAt: chat.updatedAt,
+                chatId:   chat.id,
+                title:    chat.title,
+                messages: chat.messages,
+                folderId: chat.folderId ?? null,
             })
         });
         if (res.status === 401) {
@@ -308,6 +325,35 @@ async function syncChat(chatId) {
     } catch (err) {
         console.warn('Failed to sync chat:', err);
     }
+}
+
+// Syncs a folder to the server
+async function syncFolder(folderId) {
+    const token = getAuthToken();
+    if (!token) return;
+    const folder = state.folders[folderId];
+    if (!folder) return;
+    try {
+        const res = await fetch('/api/folders/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ folderId: folder.id, name: folder.name, color: folder.color }),
+        });
+        if (res.status === 401) { clearAuthSession(); showAuthScreen(); showToast('Your session has expired. Please sign in again.', 'error'); }
+    } catch (err) { console.warn('Failed to sync folder:', err); }
+}
+
+// Deletes a folder from the server
+async function deleteServerFolder(folderId) {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+        await fetch('/api/folders/delete', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ folderId }),
+        });
+    } catch (err) { console.warn('Failed to delete folder from server:', err); }
 }
 
 // Deletes a single chat from the server
@@ -333,27 +379,31 @@ async function loadFromServer() {
     const token = getAuthToken();
     if (!token) return;
     try {
-        // Load keys/settings and chats in parallel
-        const [dataRes, chatsRes] = await Promise.all([
-            fetch('/api/data/load', { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('/api/chats/list', { headers: { 'Authorization': `Bearer ${token}` } }),
+        // Load keys/settings, chats, and folders in parallel
+        const [dataRes, chatsRes, foldersRes] = await Promise.all([
+            fetch('/api/data/load',    { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/chats/list',   { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/folders/list', { headers: { 'Authorization': `Bearer ${token}` } }),
         ]);
 
-        if (dataRes.status === 401 || chatsRes.status === 401) {
+        if ([dataRes, chatsRes, foldersRes].some(r => r.status === 401)) {
             clearAuthSession();
             showAuthScreen();
             showToast('Your session has expired. Please sign in again.', 'error');
             return;
         }
 
-        if (!dataRes.ok || !chatsRes.ok) return;
+        if (!dataRes.ok || !chatsRes.ok || !foldersRes.ok) return;
 
-        const [data, chatsData] = await Promise.all([dataRes.json(), chatsRes.json()]);
+        const [data, chatsData, foldersData] = await Promise.all([
+            dataRes.json(), chatsRes.json(), foldersRes.json(),
+        ]);
 
         // Merge server data into state — server wins over localStorage
         if (data.keys) state.keys = { ...state.keys, ...data.keys };
         if (data.selectedModel) state.selectedModel = data.selectedModel;
         if (chatsData.chats && Object.keys(chatsData.chats).length > 0) state.chats = chatsData.chats;
+        if (foldersData.folders) state.folders = { ...state.folders, ...foldersData.folders };
 
         // Save merged state locally
         localStorage.setItem('quasar_state', JSON.stringify(state));
@@ -616,9 +666,9 @@ function selectModel(providerKey, modelId) {
 // --- CHAT MANAGEMENT ---
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 
-function createNewChat(switchChat = true) {
+function createNewChat(switchChat = true, folderId = null) {
     const id = generateId();
-    state.chats[id] = { id, title: 'New Chat', messages: [], updatedAt: Date.now() };
+    state.chats[id] = { id, title: 'New Chat', messages: [], folderId: folderId ?? null, updatedAt: Date.now() };
     if (switchChat) {
         state.currentChatId = id;
         renderChat(id);
@@ -671,50 +721,238 @@ function renameChat(id, event) {
     }
 }
 
-function renderChatList() {
-    const query = state.searchQuery;
-    const allChats = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
-    
-    // Filter chats based on search query
-    const filteredIds = query === ''
-        ? allChats
-        : allChats.filter(id => {
-            const chat = state.chats[id];
-            const searchableText = getSearchableText(chat);
-            return searchableText.includes(query);
+// --- FOLDER MANAGEMENT ---
+function createFolder() {
+    const name = prompt('Folder name:');
+    if (!name || !name.trim()) return;
+    const id = generateId();
+    const colorKeys = Object.keys(FOLDER_COLORS);
+    const color = colorKeys[Math.floor(Math.random() * colorKeys.length)];
+    state.folders[id] = { id, name: name.trim().slice(0, 64), color };
+    saveState();
+    syncFolder(id);
+    renderChatList();
+}
+
+function renameFolder(folderId, event) {
+    event.stopPropagation();
+    const folder = state.folders[folderId];
+    if (!folder) return;
+    const newName = prompt('Rename folder:', folder.name);
+    if (!newName || !newName.trim()) return;
+    state.folders[folderId].name = newName.trim().slice(0, 64);
+    saveState();
+    syncFolder(folderId);
+    renderChatList();
+}
+
+function cycleFolderColor(folderId, event) {
+    event.stopPropagation();
+    const folder = state.folders[folderId];
+    if (!folder) return;
+    const colorKeys = Object.keys(FOLDER_COLORS);
+    const idx = colorKeys.indexOf(folder.color);
+    state.folders[folderId].color = colorKeys[(idx + 1) % colorKeys.length];
+    saveState();
+    syncFolder(folderId);
+    renderChatList();
+}
+
+function deleteFolder(folderId, event) {
+    event.stopPropagation();
+    const folder = state.folders[folderId];
+    if (!folder) return;
+    if (!confirm(`Delete folder "${folder.name}"?\n\nChats inside will be moved to Unfiled.`)) return;
+    Object.values(state.chats).forEach(chat => {
+        if (chat.folderId === folderId) {
+            chat.folderId = null;
+            clearTimeout((saveState._chatTimers || {})[chat.id]);
+            saveState._chatTimers = saveState._chatTimers || {};
+            saveState._chatTimers[chat.id] = setTimeout(() => syncChat(chat.id), 600);
+        }
+    });
+    delete state.folders[folderId];
+    collapsedFolders.delete(folderId);
+    deleteServerFolder(folderId);
+    saveState();
+    renderChatList();
+}
+
+function moveChatToFolder(chatId, folderId) {
+    if (!state.chats[chatId]) return;
+    state.chats[chatId].folderId = folderId;
+    saveState(chatId);
+    renderChatList();
+}
+
+function showFolderPicker(chatId, event) {
+    event.stopPropagation();
+    document.getElementById('folderPickerMenu')?.remove();
+
+    const menu = document.createElement('div');
+    menu.id = 'folderPickerMenu';
+    menu.className = 'fixed z-[500] bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl py-1.5 min-w-[190px]';
+
+    const currentFolderId = state.chats[chatId]?.folderId;
+
+    // Unfiled option
+    const unfiledBtn = document.createElement('button');
+    const unfiledActive = !currentFolderId;
+    unfiledBtn.className = `w-full text-left px-4 py-2 text-sm flex items-center gap-2.5 transition-colors ${unfiledActive ? 'text-brand-500 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`;
+    unfiledBtn.innerHTML = `<i class="fas fa-inbox text-slate-400" style="width:14px"></i><span class="flex-1">Unfiled</span>${unfiledActive ? '<i class="fas fa-check text-brand-500 text-xs"></i>' : ''}`;
+    unfiledBtn.onclick = () => { moveChatToFolder(chatId, null); menu.remove(); };
+    menu.appendChild(unfiledBtn);
+
+    const sortedFolders = Object.values(state.folders).sort((a, b) => a.name.localeCompare(b.name));
+    if (sortedFolders.length > 0) {
+        const sep = document.createElement('div');
+        sep.className = 'my-1 border-t border-slate-100 dark:border-white/5';
+        menu.appendChild(sep);
+        sortedFolders.forEach(folder => {
+            const colors = FOLDER_COLORS[folder.color] || FOLDER_COLORS.gray;
+            const isActive = currentFolderId === folder.id;
+            const btn = document.createElement('button');
+            btn.className = `w-full text-left px-4 py-2 text-sm flex items-center gap-2.5 transition-colors ${isActive ? 'text-brand-500 font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`;
+            btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${colors.dot};flex-shrink:0;display:inline-block"></span><span class="flex-1 truncate">${escapeHtml(folder.name)}</span>${isActive ? '<i class="fas fa-check text-brand-500 text-xs"></i>' : ''}`;
+            btn.onclick = () => { moveChatToFolder(chatId, folder.id); menu.remove(); };
+            menu.appendChild(btn);
         });
+    }
+
+    const rect = (event.currentTarget || event.target).getBoundingClientRect();
+    menu.style.top  = Math.min(rect.bottom + 4, window.innerHeight - 240) + 'px';
+    menu.style.left = Math.max(rect.left - 120, 8) + 'px';
+    document.body.appendChild(menu);
+
+    const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close, true); } };
+    setTimeout(() => document.addEventListener('click', close, true), 0);
+}
+
+// --- RENDER CHAT LIST (folder-grouped) ---
+function renderChatList() {
+    const query = (state.searchQuery || '').toLowerCase();
+    const allIds = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
+    const filteredIds = query
+        ? allIds.filter(id => getSearchableText(state.chats[id]).includes(query))
+        : allIds;
+
+    if (filteredIds.length === 0) {
+        DOM.chatList.innerHTML = '';
+        DOM.chatList.classList.add('hidden');
+        DOM.emptySearchState.classList.remove('hidden');
+        return;
+    }
+    DOM.chatList.classList.remove('hidden');
+    DOM.emptySearchState.classList.add('hidden');
+
+    const hasFolders = Object.keys(state.folders).length > 0;
+
+    // Bucket chats
+    const byFolder = {};
+    const unfiled = [];
+    filteredIds.forEach(id => {
+        const fid = state.chats[id].folderId;
+        if (fid && state.folders[fid]) {
+            (byFolder[fid] = byFolder[fid] || []).push(id);
+        } else {
+            unfiled.push(id);
+        }
+    });
 
     const fragment = document.createDocumentFragment();
-    filteredIds.forEach(id => {
-        const chat = state.chats[id];
-        const isSelected = id === state.currentChatId;
-        const div = document.createElement('div');
-        div.className = `group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-white/5 text-brand-600 dark:text-brand-400 font-medium' : 'hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 border border-transparent'}`;
-        div.onclick = () => selectChat(id);
-        div.innerHTML = `
-            <div class="flex items-center gap-3 overflow-hidden">
-                <i class="fas fa-message text-[12px] opacity-70"></i>
-                <span class="truncate text-sm">${escapeHtml(chat.title)}</span>
-            </div>
-            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onclick="renameChat('${id}', event)" class="p-1.5 text-slate-400 hover:text-brand-500 rounded bg-slate-50 dark:bg-slate-700/50"><i class="fas fa-pen text-[10px]"></i></button>
-                <button onclick="deleteChat('${id}', event)" class="p-1.5 text-slate-400 hover:text-red-500 rounded bg-slate-50 dark:bg-slate-700/50"><i class="fas fa-trash text-[10px]"></i></button>
+
+    // ── Folder sections ──
+    const sortedFolders = Object.values(state.folders)
+        .filter(f => !query || (byFolder[f.id] && byFolder[f.id].length > 0))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedFolders.forEach(folder => {
+        const colors = FOLDER_COLORS[folder.color] || FOLDER_COLORS.gray;
+        const chatsInFolder = byFolder[folder.id] || [];
+        const isCollapsed = collapsedFolders.has(folder.id) && !query;
+
+        // Folder header
+        const header = document.createElement('div');
+        header.className = 'group flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mt-0.5';
+        header.onclick = () => {
+            if (isCollapsed) collapsedFolders.delete(folder.id);
+            else collapsedFolders.add(folder.id);
+            renderChatList();
+        };
+        header.innerHTML = `
+            <i class="fas fa-chevron-right text-slate-400 transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}" style="font-size:9px;width:10px;flex-shrink:0"></i>
+            <i class="fas fa-folder${isCollapsed ? '' : '-open'}" style="font-size:12px;color:${colors.icon};flex-shrink:0"></i>
+            <span class="text-xs font-semibold truncate flex-1" style="color:${colors.label}">${escapeHtml(folder.name)}</span>
+            <span class="text-[10px] text-slate-400 font-medium">${chatsInFolder.length}</span>
+            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
+                <button onclick="createNewChat(true,'${folder.id}')" title="New chat in folder" class="p-1 rounded text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"><i class="fas fa-plus" style="font-size:9px"></i></button>
+                <button onclick="cycleFolderColor('${folder.id}',event)" title="Change color" class="p-1 rounded text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"><i class="fas fa-palette" style="font-size:9px"></i></button>
+                <button onclick="renameFolder('${folder.id}',event)" title="Rename" class="p-1 rounded text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"><i class="fas fa-pen" style="font-size:9px"></i></button>
+                <button onclick="deleteFolder('${folder.id}',event)" title="Delete folder" class="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"><i class="fas fa-trash" style="font-size:9px"></i></button>
             </div>
         `;
-        fragment.appendChild(div);
+        fragment.appendChild(header);
+
+        if (!isCollapsed) {
+            chatsInFolder.forEach(id => fragment.appendChild(buildChatItem(id, true)));
+        }
     });
+
+    // ── Unfiled section ──
+    if (unfiled.length > 0) {
+        if (hasFolders) {
+            const unfiledCollapsed = collapsedFolders.has('__unfiled__') && !query;
+            const unfiledHeader = document.createElement('div');
+            unfiledHeader.className = 'flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mt-0.5';
+            unfiledHeader.onclick = () => {
+                if (unfiledCollapsed) collapsedFolders.delete('__unfiled__');
+                else collapsedFolders.add('__unfiled__');
+                renderChatList();
+            };
+            unfiledHeader.innerHTML = `
+                <i class="fas fa-chevron-right text-slate-400 transition-transform duration-150 ${unfiledCollapsed ? '' : 'rotate-90'}" style="font-size:9px;width:10px;flex-shrink:0"></i>
+                <i class="fas fa-inbox text-slate-400" style="font-size:12px;flex-shrink:0"></i>
+                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 flex-1">Unfiled</span>
+                <span class="text-[10px] text-slate-400 font-medium">${unfiled.length}</span>
+            `;
+            fragment.appendChild(unfiledHeader);
+            if (!unfiledCollapsed) {
+                unfiled.forEach(id => fragment.appendChild(buildChatItem(id, true)));
+            }
+        } else {
+            // No folders yet — flat list, original behavior
+            unfiled.forEach(id => fragment.appendChild(buildChatItem(id, false)));
+        }
+    }
 
     DOM.chatList.innerHTML = '';
     DOM.chatList.appendChild(fragment);
+}
 
-    // Show/hide empty state
-    if (filteredIds.length === 0) {
-        DOM.chatList.classList.add('hidden');
-        DOM.emptySearchState.classList.remove('hidden');
-    } else {
-        DOM.chatList.classList.remove('hidden');
-        DOM.emptySearchState.classList.add('hidden');
-    }
+function buildChatItem(id, indented) {
+    const chat = state.chats[id];
+    const isSelected = id === state.currentChatId;
+    const div = document.createElement('div');
+    div.className = [
+        'group flex items-center justify-between rounded-xl cursor-pointer transition-all p-3',
+        indented ? 'ml-4' : '',
+        isSelected
+            ? 'bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-white/5 text-brand-600 dark:text-brand-400 font-medium'
+            : 'hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 border border-transparent'
+    ].join(' ');
+    div.onclick = () => selectChat(id);
+    div.innerHTML = `
+        <div class="flex items-center gap-2.5 overflow-hidden min-w-0">
+            <i class="fas fa-message flex-shrink-0 opacity-60" style="font-size:11px"></i>
+            <span class="truncate text-sm">${escapeHtml(chat.title)}</span>
+        </div>
+        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
+            <button onclick="showFolderPicker('${id}',event)" title="Move to folder" class="p-1.5 rounded text-slate-400 hover:text-brand-500 bg-slate-50 dark:bg-slate-700/50 transition-colors"><i class="fas fa-folder-plus" style="font-size:9px"></i></button>
+            <button onclick="renameChat('${id}',event)" title="Rename" class="p-1.5 rounded text-slate-400 hover:text-brand-500 bg-slate-50 dark:bg-slate-700/50 transition-colors"><i class="fas fa-pen" style="font-size:10px"></i></button>
+            <button onclick="deleteChat('${id}',event)" title="Delete" class="p-1.5 rounded text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 transition-colors"><i class="fas fa-trash" style="font-size:10px"></i></button>
+        </div>
+    `;
+    return div;
 }
 
 function renderChat(id) {
@@ -1780,6 +2018,7 @@ function handleLogout() {
     state.keys = { google: '', openai: '', anthropic: '', groq: '', openrouter: '' };
     state.models = { google: [], openai: [], anthropic: [], groq: [], openrouter: [] };
     state.chats = {};
+    state.folders = {};
     state.currentChatId = null;
     state.selectedModel = '';
     showAuthScreen();
