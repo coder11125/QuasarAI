@@ -646,7 +646,23 @@ function setupResizeHandle() {
 // --- MODEL DROPDOWN ---
 function setupModelDropdown() {
     if (!DOM.modelDropdownBtn || !DOM.modelDropdownMenu) return;
-    DOM.modelDropdownBtn.addEventListener('click', (e) => { e.stopPropagation(); DOM.modelDropdownMenu.classList.toggle('hidden'); });
+    DOM.modelDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = DOM.modelDropdownMenu.classList.toggle('hidden');
+        if (!isHidden) {
+            // Reposition: if the button is near the left edge (mobile), align menu to left;
+            // if near right edge, align to right so it doesn't clip off screen.
+            const btnRect = DOM.modelDropdownBtn.getBoundingClientRect();
+            const menuWidth = 260;
+            if (btnRect.left + menuWidth > window.innerWidth - 8) {
+                DOM.modelDropdownMenu.style.left = 'auto';
+                DOM.modelDropdownMenu.style.right = '0';
+            } else {
+                DOM.modelDropdownMenu.style.left = '0';
+                DOM.modelDropdownMenu.style.right = 'auto';
+            }
+        }
+    });
     document.addEventListener('click', () => { DOM.modelDropdownMenu.classList.add('hidden'); });
     DOM.modelDropdownMenu.addEventListener('click', (e) => { e.stopPropagation(); });
 }
@@ -693,7 +709,8 @@ function deleteChat(id, event) {
         delete state.chats[id];
         deleteServerChat(id);
         if (state.currentChatId === id) {
-            const remaining = Object.keys(state.chats);
+            const remaining = Object.keys(state.chats)
+                .sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt);
             if (remaining.length > 0) selectChat(remaining[0]);
             else createNewChat();
         } else { renderChatList(); saveState(); }
@@ -1212,6 +1229,7 @@ async function saveAndFetch(provider) {
         setTimeout(() => {
             state.models[provider] = ANTHROPIC_HARDCODED_MODELS;
             saveState(); updateModelSelector();
+            syncToServer(); // sync immediately — don't rely on debounce
             icon.className = 'fas fa-link';
             statusDiv.innerHTML = '<span class="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800"><i class="fas fa-check-circle mr-1"></i> Connected</span>';
             showToast('Successfully connected to Anthropic.', 'success');
@@ -1235,6 +1253,7 @@ async function saveAndFetch(provider) {
         }
         state.models[provider] = models.sort();
         saveState(); updateModelSelector();
+        syncToServer(); // sync immediately — don't rely on debounce
         statusDiv.innerHTML = '<span class="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800"><i class="fas fa-check-circle mr-1"></i> Connected</span>';
         showToast(`Successfully connected to ${DEFAULT_PROVIDERS[provider].name}.`, 'success');
     } catch (err) {
@@ -1285,7 +1304,7 @@ function updateModelSelector() {
     if (hasModels) DOM.modelDropdownMenu.appendChild(fragment);
     else DOM.modelDropdownMenu.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">No models available. Connect an API in Settings.</div>';
 
-    if (!hasModels) DOM.modelDropdownLabel.textContent = 'Setup API in Settings';
+    if (!hasModels) DOM.modelDropdownLabel.textContent = 'No model';
     else if (!state.selectedModel) {
         const firstProv = Object.keys(state.models).find(k => state.models[k].length > 0);
         if (firstProv) selectModel(firstProv, state.models[firstProv][0]);
@@ -1407,6 +1426,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
             let parts = [];
             if (msg.text) parts.push({ text: msg.text });
             if (msg.attachment) { const b64 = msg.attachment.dataUrl.split(',')[1]; parts.push({ inlineData: { mimeType: msg.attachment.type, data: b64 } }); }
+            if (parts.length === 0) parts.push({ text: '' }); // Google requires at least one part
             return { role: msg.role === 'ai' ? 'model' : 'user', parts };
         });
     } else if (provider === 'anthropic') {
@@ -1417,6 +1437,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
             let content = [];
             if (msg.text) content.push({ type: 'text', text: msg.text });
             if (msg.attachment && msg.role === 'user') { const b64 = msg.attachment.dataUrl.split(',')[1]; content.push({ type: 'image', source: { type: 'base64', media_type: msg.attachment.type, data: b64 } }); }
+            if (content.length === 0) continue; // skip messages with no content — API rejects empty arrays
             msgs.push({ role: msg.role === 'ai' ? 'assistant' : 'user', content });
         }
         body = { model: modelId, max_tokens: 4096, system: SYSTEM_PROMPT, messages: msgs };
@@ -1511,16 +1532,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         
         // Update message in state
         const chat = state.chats[state.currentChatId];
-        const stateMessageIndex = chat.messages.findIndex((msg, idx) => {
-            // Find the user message at this position
-            let uiIndex = 0;
-            for (let i = 0; i <= idx; i++) {
-                if (i === idx) return uiIndex === messageIndex;
-                uiIndex++;
-            }
-            return false;
-        });
-        
+
         // Find actual index by counting messages
         let userMsgCount = 0;
         let actualIndex = -1;
@@ -1545,8 +1557,8 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         // Remove all messages after this one (since we're re-sending)
         chat.messages = chat.messages.slice(0, actualIndex + 1);
         
-        // Save state
-        saveState();
+        // Save state — pass chatId so the edit syncs to server even if the AI call fails
+        saveState(state.currentChatId);
         
         // Re-render chat to show updated message
         renderChat(state.currentChatId);
@@ -2021,6 +2033,8 @@ function handleLogout() {
     state.folders = {};
     state.currentChatId = null;
     state.selectedModel = '';
+    updateModelSelector();
+    renderProviderSettings();
     showAuthScreen();
     document.getElementById('loginEmail').value    = '';
     document.getElementById('loginPassword').value = '';
