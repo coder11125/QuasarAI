@@ -222,38 +222,37 @@ function filterChats(query) {
 function init() {
     const saved = localStorage.getItem('quasar_state');
     if (saved) {
-        const parsed = JSON.parse(saved);
-        state = { ...state, ...parsed };
-        // Ensure folders exists for users with old localStorage state
-        if (!state.folders) state.folders = {};
+        try {
+            const parsed = JSON.parse(saved);
+            state = { ...state, ...parsed };
+            if (!state.folders) state.folders = {};
+        } catch { /* corrupted localStorage — start fresh */ }
     }
+
+    // Apply theme immediately so there's no flash
     if (state.theme === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         setTheme('dark');
     } else {
         setTheme('light');
     }
+
     if (window.innerWidth > 768 && state.sidebarCollapsed) {
         DOM.sidebar.classList.add('sidebar-collapsed');
     }
-    renderProviderSettings();
-    updateModelSelector();
+
     setupModelDropdown();
     setupResizeHandle();
     setupSearchInput();
-
-    if (Object.keys(state.chats).length === 0) {
-        createNewChat(false);
-    } else {
-        if (!state.currentChatId || !state.chats[state.currentChatId]) {
-            state.currentChatId = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt)[0];
-        }
-        renderChatList();
-        renderChat(state.currentChatId);
-    }
-    if (state.selectedModel) DOM.modelSelect.value = state.selectedModel;
     setupSpeechRecognition();
 
-    // Check auth — shows login screen if not authenticated
+    // Show a loading placeholder in the chat window while auth resolves
+    DOM.chatWindow.innerHTML = `
+        <div class="h-full flex flex-col items-center justify-center text-center opacity-40">
+            <i class="fas fa-circle-notch fa-spin text-brand-500 text-3xl mb-4"></i>
+            <p class="text-sm text-slate-500">Loading…</p>
+        </div>`;
+
+    // Auth check — this will call loadFromServer() which renders everything fresh
     checkAuthOnLoad();
 }
 
@@ -378,12 +377,27 @@ async function deleteServerChat(chatId) {
 async function loadFromServer() {
     const token = getAuthToken();
     if (!token) return;
+
+    // Retry helper — cold Vercel starts can return 500 on first request
+    async function fetchWithRetry(url, options, retries = 2) {
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const res = await fetch(url, options);
+                if (res.ok || res.status === 401) return res; // don't retry auth failures
+                if (i < retries) await new Promise(r => setTimeout(r, 800 * (i + 1)));
+            } catch (err) {
+                if (i === retries) throw err;
+                await new Promise(r => setTimeout(r, 800 * (i + 1)));
+            }
+        }
+    }
+
     try {
-        // Load keys/settings, chats, and folders in parallel
+        const headers = { 'Authorization': `Bearer ${token}` };
         const [dataRes, chatsRes, foldersRes] = await Promise.all([
-            fetch('/api/data/load',    { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('/api/chats/list',   { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('/api/folders/list', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetchWithRetry('/api/data/load',    { headers }),
+            fetchWithRetry('/api/chats/list',   { headers }),
+            fetchWithRetry('/api/folders/list', { headers }),
         ]);
 
         if ([dataRes, chatsRes, foldersRes].some(r => r.status === 401)) {
@@ -393,17 +407,16 @@ async function loadFromServer() {
             return;
         }
 
-        if (!dataRes.ok || !chatsRes.ok || !foldersRes.ok) return;
+        // Parse whatever succeeded — don't bail if one fails
+        const data        = dataRes?.ok    ? await dataRes.json()    : {};
+        const chatsData   = chatsRes?.ok   ? await chatsRes.json()   : {};
+        const foldersData = foldersRes?.ok ? await foldersRes.json() : {};
 
-        const [data, chatsData, foldersData] = await Promise.all([
-            dataRes.json(), chatsRes.json(), foldersRes.json(),
-        ]);
-
-        // Merge server data into state — server wins over localStorage
-        if (data.keys) state.keys = { ...state.keys, ...data.keys };
-        if (data.selectedModel) state.selectedModel = data.selectedModel;
-        if (chatsData.chats && Object.keys(chatsData.chats).length > 0) state.chats = chatsData.chats;
-        if (foldersData.folders) state.folders = { ...state.folders, ...foldersData.folders };
+        // Server always wins — replace, don't merge
+        if (data.keys)           state.keys          = { google: '', openai: '', anthropic: '', groq: '', openrouter: '', ...data.keys };
+        if (data.selectedModel)  state.selectedModel = data.selectedModel;
+        if (chatsData.chats)     state.chats         = Object.keys(chatsData.chats).length > 0 ? chatsData.chats : state.chats;
+        if (foldersData.folders) state.folders       = foldersData.folders;
 
         // Save merged state locally
         localStorage.setItem('quasar_state', JSON.stringify(state));
@@ -415,7 +428,8 @@ async function loadFromServer() {
             createNewChat(false);
         } else {
             if (!state.currentChatId || !state.chats[state.currentChatId]) {
-                state.currentChatId = Object.keys(state.chats).sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt)[0];
+                state.currentChatId = Object.keys(state.chats)
+                    .sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt)[0];
             }
             renderChatList();
             renderChat(state.currentChatId);
@@ -427,6 +441,8 @@ async function loadFromServer() {
         }
     } catch (err) {
         console.warn('Failed to load from server:', err);
+        showToast('Could not load your data. Check your connection.', 'error');
+        renderFromLocalState();
     }
 }
 
@@ -1244,7 +1260,11 @@ async function saveAndFetch(provider) {
             const res = await fetch(`${url}?key=${key}`);
             const data = await res.json();
             if (data.error) throw new Error(data.error.message);
-            models = data.models.filter(m => m.supportedGenerationMethods.includes("generateContent")).map(m => m.name.replace('models/', ''));
+            const DEPRECATED = ['vision-latest', '1.0-pro', 'ultra', 'aqa'];
+            models = data.models
+                .filter(m => m.supportedGenerationMethods.includes("generateContent"))
+                .map(m => m.name.replace('models/', ''))
+                .filter(m => !DEPRECATED.some(d => m.includes(d)));
         } else {
             const res = await fetch(url, { headers: { 'Authorization': `Bearer ${key}` } });
             const data = await res.json();
@@ -1422,13 +1442,29 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
         url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
         headers['Content-Type'] = 'application/json';
         body.systemInstruction = { parts: [{ text: SYSTEM_PROMPT }] };
-        body.contents = messagesHistory.map(msg => {
-            let parts = [];
-            if (msg.text) parts.push({ text: msg.text });
-            if (msg.attachment) { const b64 = msg.attachment.dataUrl.split(',')[1]; parts.push({ inlineData: { mimeType: msg.attachment.type, data: b64 } }); }
-            if (parts.length === 0) parts.push({ text: '' }); // Google requires at least one part
-            return { role: msg.role === 'ai' ? 'model' : 'user', parts };
-        });
+
+        // Google requires strictly alternating user/model roles — merge consecutive same-role messages
+        const merged = [];
+        for (const msg of messagesHistory) {
+            const role = msg.role === 'ai' ? 'model' : 'user';
+            const last = merged[merged.length - 1];
+            if (last && last.role === role) {
+                // merge into previous message by appending text
+                if (msg.text) last.parts.push({ text: msg.text });
+            } else {
+                const parts = [];
+                if (msg.text) parts.push({ text: msg.text });
+                if (msg.attachment) {
+                    const b64 = msg.attachment.dataUrl.split(',')[1];
+                    parts.push({ inlineData: { mimeType: msg.attachment.type, data: b64 } });
+                }
+                if (parts.length === 0) parts.push({ text: ' ' });
+                merged.push({ role, parts });
+            }
+        }
+        // Google requires conversation to start with a user message
+        if (merged.length > 0 && merged[0].role !== 'user') merged.shift();
+        body.contents = merged;
     } else if (provider === 'anthropic') {
         url = 'https://api.anthropic.com/v1/messages';
         headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' };
@@ -2046,20 +2082,42 @@ async function checkAuthOnLoad() {
     const token = getAuthToken();
     if (!token) { showAuthScreen(); return; }
 
-    // Verify token is still valid against the server
     try {
         const res = await fetch('/api/auth/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
-            hideAuthScreen(); // Token valid — let user straight in
+            hideAuthScreen(); // calls loadFromServer() — fresh data from MongoDB
         } else {
             clearAuthSession();
             showAuthScreen();
         }
     } catch {
-        // Network error — if token exists trust it locally rather than locking user out
-        hideAuthScreen();
+        // Network error — trust the token and render from localStorage so the
+        // user isn't locked out offline, but don't try to loadFromServer
+        document.getElementById('authScreen').classList.add('auth-hidden');
+        renderFromLocalState();
+    }
+}
+
+// Renders the UI entirely from whatever is currently in state (localStorage fallback)
+function renderFromLocalState() {
+    renderProviderSettings();
+    updateModelSelector();
+    if (Object.keys(state.chats).length === 0) {
+        createNewChat(false);
+    } else {
+        if (!state.currentChatId || !state.chats[state.currentChatId]) {
+            state.currentChatId = Object.keys(state.chats)
+                .sort((a, b) => state.chats[b].updatedAt - state.chats[a].updatedAt)[0];
+        }
+        renderChatList();
+        renderChat(state.currentChatId);
+    }
+    if (state.selectedModel) {
+        DOM.modelSelect.value = state.selectedModel;
+        const [pk, mid] = state.selectedModel.split('|');
+        if (pk && mid) DOM.modelDropdownLabel.textContent = mid.split('/').pop();
     }
 }
 
