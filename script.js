@@ -1310,7 +1310,7 @@ function updateModelSelector() {
                     modelBtn.classList.add('active');
                     DOM.modelDropdownLabel.textContent = modelShortName;
                 }
-                modelBtn.innerHTML = `<span class="model-name-text">${modelShortName}</span><i class="fas fa-check selected-icon ml-auto opacity-0"></i>`;
+                modelBtn.innerHTML = `<span class="model-name-text">${escapeHtml(modelShortName)}</span><i class="fas fa-check selected-icon ml-auto opacity-0"></i>`;
                 modelBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); selectModel(provKey, m); };
                 groupDiv.appendChild(modelBtn);
                 const option = document.createElement('option');
@@ -1426,7 +1426,7 @@ DOM.chatForm.onsubmit = async (e) => {
     } catch (err) {
         thinkingWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
             </div>`;
     }
 };
@@ -1637,7 +1637,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         } catch (err) {
             thinkingWrapper.innerHTML = `
                 <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
+                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
                 </div>`;
         }
     };
@@ -1712,7 +1712,7 @@ async function regenerateResponse(aiMessageWrapper) {
     } catch (err) {
         aiMessageWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${err.message}</div>
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
             </div>`;
     }
 }
