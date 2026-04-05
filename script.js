@@ -1073,8 +1073,54 @@ function buildArtifactCard(lang, code) {
     return card;
 }
 
+// Renders plain text into the streaming bubble while tokens are arriving
+function renderStreamingContent(el, text) {
+    // Show plain text during streaming — fast and flicker-free
+    el.textContent = text;
+    // Add a blinking cursor at the end
+    el.innerHTML = escapeHtml(text) + '<span class="streaming-cursor">▋</span>';
+}
+
+// Called when streaming is complete — replaces plain text with full markdown + artifact cards
+function finaliseStreamingBubble(wrapper, text) {
+    const bubble = wrapper.querySelector('.message-ai');
+    if (!bubble) return;
+    bubble.innerHTML = ''; // clear streaming content
+    bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+
+    const segments = parseMessageSegments(text);
+    let firstItem = true;
+    segments.forEach((seg, idx) => {
+        const isLast = idx === segments.length - 1;
+        if (seg.type === 'text' && seg.content.trim()) {
+            const textDiv = document.createElement('div');
+            textDiv.className = 'prose-msg';
+            textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
+            try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
+            catch (e) { textDiv.textContent = seg.content; }
+            textDiv.querySelectorAll('p').forEach(p => {
+                p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
+                if (!p.innerHTML.trim()) p.remove();
+            });
+            bubble.appendChild(textDiv);
+            firstItem = false;
+        } else if (seg.type === 'code') {
+            const card = buildArtifactCard(seg.lang, seg.content);
+            const t = firstItem ? '12px' : '4px';
+            const b = isLast ? '12px' : '4px';
+            card.style.margin = `${t} 12px ${b} 12px`;
+            bubble.appendChild(card);
+            firstItem = false;
+        }
+    });
+
+    // Update the data attribute and action buttons
+    bubble.setAttribute('data-message-text', text);
+}
+
 // --- MESSAGE UI ---
-function appendMessageUI(role, text, attachment = null) {
+// streaming=true creates an empty bubble with a streaming-content div inside
+function appendMessageUI(role, text, attachment = null, streaming = false) {
     if (DOM.chatWindow.querySelector('.fa-meteor.animate-pulse')) {
         DOM.chatWindow.innerHTML = '';
     }
@@ -1098,33 +1144,42 @@ function appendMessageUI(role, text, attachment = null) {
         bubble.appendChild(textDiv);
     } else {
         bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
-        const segments = parseMessageSegments(text);
-        let firstItem = true;
 
-        segments.forEach((seg, idx) => {
-            const isLast = idx === segments.length - 1;
-            if (seg.type === 'text' && seg.content.trim()) {
-                const textDiv = document.createElement('div');
-                textDiv.className = 'prose-msg';
-                textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
-                try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
-                catch (e) { textDiv.textContent = seg.content; }
-                // Nuke any trailing <br> or empty <p> marked injected
-                textDiv.querySelectorAll('p').forEach(p => {
-                    p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
-                    if (!p.innerHTML.trim()) p.remove();
-                });
-                bubble.appendChild(textDiv);
-                firstItem = false;
-            } else if (seg.type === 'code') {
-                const card = buildArtifactCard(seg.lang, seg.content);
-                const t = firstItem ? '12px' : '4px';
-                const b = isLast ? '12px' : '4px';
-                card.style.margin = `${t} 12px ${b} 12px`;
-                bubble.appendChild(card);
-                firstItem = false;
-            }
-        });
+        if (streaming) {
+            // Streaming mode — just a placeholder div that renderStreamingContent will fill
+            const streamDiv = document.createElement('div');
+            streamDiv.className = 'streaming-content prose-msg';
+            streamDiv.style.padding = '16px 20px';
+            streamDiv.innerHTML = '<span class="streaming-cursor">▋</span>';
+            bubble.appendChild(streamDiv);
+        } else {
+            const segments = parseMessageSegments(text);
+            let firstItem = true;
+
+            segments.forEach((seg, idx) => {
+                const isLast = idx === segments.length - 1;
+                if (seg.type === 'text' && seg.content.trim()) {
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'prose-msg';
+                    textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
+                    try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
+                    catch (e) { textDiv.textContent = seg.content; }
+                    textDiv.querySelectorAll('p').forEach(p => {
+                        p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
+                        if (!p.innerHTML.trim()) p.remove();
+                    });
+                    bubble.appendChild(textDiv);
+                    firstItem = false;
+                } else if (seg.type === 'code') {
+                    const card = buildArtifactCard(seg.lang, seg.content);
+                    const t = firstItem ? '12px' : '4px';
+                    const b = isLast ? '12px' : '4px';
+                    card.style.margin = `${t} 12px ${b} 12px`;
+                    bubble.appendChild(card);
+                    firstItem = false;
+                }
+            });
+        }
     }
 
     bubble.setAttribute('data-message-text', text);
@@ -1404,30 +1459,26 @@ DOM.chatForm.onsubmit = async (e) => {
     DOM.userInput.value = ''; DOM.userInput.style.height = 'auto';
     DOM.removeAttachmentBtn.click();
 
-    const thinkingWrapper = document.createElement('div');
-    thinkingWrapper.className = 'flex w-full justify-start animate-slide-in gap-2';
-    thinkingWrapper.innerHTML = `
-        <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-            <span class="flex items-center gap-2 text-sm text-slate-500">
-                <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Thinking...
-            </span>
-        </div>`;
-    DOM.chatWindow.appendChild(thinkingWrapper);
+    // Create the AI bubble immediately (empty, will fill as tokens arrive)
+    const aiWrapper = appendMessageUI('ai', '', null, true); // true = streaming mode
+    const aiBubble = aiWrapper.querySelector('.streaming-content');
     scrollToBottom();
 
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
-        const responseText = await callAIProvider(provider, modelId, apiKey, history);
-        thinkingWrapper.remove();
-        appendMessageUI('ai', responseText);
+        const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+            // Update the bubble with each new chunk
+            renderStreamingContent(aiBubble, partial);
+            scrollToBottom();
+        });
+        // Streaming done — do a final full render with markdown/artifacts
+        finaliseStreamingBubble(aiWrapper, responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
     } catch (err) {
-        thinkingWrapper.innerHTML = `
-            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
-            </div>`;
+        aiWrapper.querySelector('.message-ai').innerHTML = `
+            <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
     }
 };
 
@@ -1435,21 +1486,23 @@ DOM.userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!DOM.sendBtn.disabled) DOM.chatForm.dispatchEvent(new Event('submit')); }
 });
 
-async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
+// --- STREAMING AI PROVIDER ---
+// onChunk(text) is called with each new text chunk as it arrives.
+// Returns the full accumulated response text when complete.
+async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChunk) {
     let url, headers = {}, body = {};
 
     if (provider === 'google') {
-        url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+        // Google streaming uses streamGenerateContent endpoint
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?key=${apiKey}&alt=sse`;
         headers['Content-Type'] = 'application/json';
         body.systemInstruction = { parts: [{ text: SYSTEM_PROMPT }] };
 
-        // Google requires strictly alternating user/model roles — merge consecutive same-role messages
         const merged = [];
         for (const msg of messagesHistory) {
             const role = msg.role === 'ai' ? 'model' : 'user';
             const last = merged[merged.length - 1];
             if (last && last.role === role) {
-                // merge into previous message by appending text
                 if (msg.text) last.parts.push({ text: msg.text });
             } else {
                 const parts = [];
@@ -1462,9 +1515,9 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
                 merged.push({ role, parts });
             }
         }
-        // Google requires conversation to start with a user message
         if (merged.length > 0 && merged[0].role !== 'user') merged.shift();
         body.contents = merged;
+
     } else if (provider === 'anthropic') {
         url = 'https://api.anthropic.com/v1/messages';
         headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' };
@@ -1473,10 +1526,11 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
             let content = [];
             if (msg.text) content.push({ type: 'text', text: msg.text });
             if (msg.attachment && msg.role === 'user') { const b64 = msg.attachment.dataUrl.split(',')[1]; content.push({ type: 'image', source: { type: 'base64', media_type: msg.attachment.type, data: b64 } }); }
-            if (content.length === 0) continue; // skip messages with no content — API rejects empty arrays
+            if (content.length === 0) continue;
             msgs.push({ role: msg.role === 'ai' ? 'assistant' : 'user', content });
         }
-        body = { model: modelId, max_tokens: 4096, system: SYSTEM_PROMPT, messages: msgs };
+        body = { model: modelId, max_tokens: 4096, system: SYSTEM_PROMPT, messages: msgs, stream: true };
+
     } else {
         if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
         else if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -1491,15 +1545,53 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory) {
                 return { role: r, content: msg.text };
             })
         ];
-        body = { model: modelId, messages: openAiMessages };
+        body = { model: modelId, messages: openAiMessages, stream: true };
     }
 
     const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || data.error?.type || JSON.stringify(data));
-    if (provider === 'google') return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
-    else if (provider === 'anthropic') return data.content?.[0]?.text || "No response.";
-    else return data.choices?.[0]?.message?.content || "No response.";
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error?.message || errData.error?.type || `HTTP ${response.status}`);
+    }
+
+    // Parse the SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line in buffer
+
+        for (const line of lines) {
+            if (!line.startsWith('data:')) continue;
+            const data = line.slice(5).trim();
+            if (data === '[DONE]') break;
+            try {
+                const json = JSON.parse(data);
+                let chunk = '';
+
+                if (provider === 'google') {
+                    chunk = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                } else if (provider === 'anthropic') {
+                    if (json.type === 'content_block_delta') chunk = json.delta?.text || '';
+                } else {
+                    chunk = json.choices?.[0]?.delta?.content || '';
+                }
+
+                if (chunk) {
+                    fullText += chunk;
+                    if (onChunk) onChunk(fullText);
+                }
+            } catch { /* skip malformed lines */ }
+        }
+    }
+
+    return fullText || 'No response.';
 }
 
 // --- EDIT MESSAGE ---
@@ -1613,32 +1705,26 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
             return;
         }
         
-        // Add thinking indicator
-        const thinkingWrapper = document.createElement('div');
-        thinkingWrapper.className = 'flex w-full justify-start animate-slide-in gap-2';
-        thinkingWrapper.innerHTML = `
-            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                <span class="flex items-center gap-2 text-sm text-slate-500">
-                    <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Thinking...
-                </span>
-            </div>`;
-        DOM.chatWindow.appendChild(thinkingWrapper);
+        // Add streaming AI bubble
+        const aiWrapper = appendMessageUI('ai', '', null, true);
+        const aiBubble = aiWrapper.querySelector('.streaming-content');
+        DOM.chatWindow.appendChild(aiWrapper);
         scrollToBottom();
         
         try {
             const history = chat.messages.slice(-12);
-            const responseText = await callAIProvider(provider, modelId, apiKey, history);
-            thinkingWrapper.remove();
-            appendMessageUI('ai', responseText);
+            const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+                renderStreamingContent(aiBubble, partial);
+                scrollToBottom();
+            });
+            finaliseStreamingBubble(aiWrapper, responseText);
             chat.messages.push({ role: 'ai', text: responseText });
             chat.updatedAt = Date.now();
-            saveState();
+            saveState(state.currentChatId);
             renderChatList();
         } catch (err) {
-            thinkingWrapper.innerHTML = `
-                <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
-                </div>`;
+            aiWrapper.querySelector('.message-ai').innerHTML = `
+                <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
         }
     };
     
@@ -1687,28 +1773,29 @@ async function regenerateResponse(aiMessageWrapper) {
         return;
     }
     
-    // Replace the AI message with a thinking indicator
-    aiMessageWrapper.innerHTML = `
-        <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
-            <span class="flex items-center gap-2 text-sm text-slate-500">
-                <i class="fas fa-circle-notch fa-spin text-brand-500"></i> Regenerating...
-            </span>
-        </div>`;
-    
+    // Replace the AI message with a streaming bubble
+    aiMessageWrapper.innerHTML = '';
+    aiMessageWrapper.className = 'flex w-full justify-start animate-slide-in gap-2 group';
+    const streamBubble = document.createElement('div');
+    streamBubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+    streamBubble.innerHTML = `<div class="streaming-content prose-msg" style="padding:16px 20px"></div>`;
+    aiMessageWrapper.appendChild(streamBubble);
+    const aiBubble = streamBubble.querySelector('.streaming-content');
+
     try {
-        // Get conversation history up to (but not including) this message
         const history = chat.messages.slice(0, actualIndex);
-        const responseText = await callAIProvider(provider, modelId, apiKey, history);
-        
-        // Update state
+        const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+            renderStreamingContent(aiBubble, partial);
+            scrollToBottom();
+        });
+
         chat.messages[actualIndex].text = responseText;
         chat.updatedAt = Date.now();
-        saveState();
-        
-        // Re-render the entire chat to show updated message
+        saveState(state.currentChatId);
+
         renderChat(state.currentChatId);
         renderChatList();
-        
+
     } catch (err) {
         aiMessageWrapper.innerHTML = `
             <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">

@@ -614,3 +614,20 @@ textarea::-webkit-scrollbar { width: 4px; }
 #authScreen > div {
     animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ============================================
+   STREAMING CURSOR
+   ============================================ */
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+.streaming-cursor {
+    display: inline-block;
+    color: #3b82f6;
+    animation: blink 0.7s ease-in-out infinite;
+    margin-left: 1px;
+    font-size: 0.9em;
+    line-height: 1;
+    vertical-align: middle;
+}
