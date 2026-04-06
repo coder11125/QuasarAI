@@ -1114,8 +1114,18 @@ function finaliseStreamingBubble(wrapper, text) {
         }
     });
 
-    // Update the data attribute and action buttons
+    // Update the data attribute and fix copy button to use final text
     bubble.setAttribute('data-message-text', text);
+    const copyBtn = wrapper.querySelector('button[title="Copy message"]');
+    if (copyBtn) {
+        copyBtn.onclick = (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(text).then(() => {
+                copyBtn.innerHTML = '<i class="fas fa-check text-sm text-emerald-500"></i>';
+                setTimeout(() => { copyBtn.innerHTML = '<i class="fas fa-copy text-sm"></i>'; }, 2000);
+            }).catch(() => showToast('Failed to copy message'));
+        };
+    }
 }
 
 // --- MESSAGE UI ---
@@ -1708,7 +1718,6 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         // Add streaming AI bubble
         const aiWrapper = appendMessageUI('ai', '', null, true);
         const aiBubble = aiWrapper.querySelector('.streaming-content');
-        DOM.chatWindow.appendChild(aiWrapper);
         scrollToBottom();
         
         try {
