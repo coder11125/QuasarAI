@@ -1465,6 +1465,9 @@ DOM.chatForm.onsubmit = async (e) => {
         renderChatList();
     }
 
+    // Clear welcome screen if still showing
+    if (DOM.chatWindow.querySelector('.fa-meteor')) DOM.chatWindow.innerHTML = '';
+
     appendMessageUI('user', text, currentAttachment);
     DOM.userInput.value = ''; DOM.userInput.style.height = 'auto';
     DOM.removeAttachmentBtn.click();
@@ -1472,7 +1475,7 @@ DOM.chatForm.onsubmit = async (e) => {
     // Create the AI bubble immediately (empty, will fill as tokens arrive)
     const aiWrapper = appendMessageUI('ai', '', null, true); // true = streaming mode
     const aiBubble = aiWrapper.querySelector('.streaming-content');
-    scrollToBottom();
+    requestAnimationFrame(() => scrollToBottom());
 
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
