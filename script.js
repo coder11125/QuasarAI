@@ -1,9 +1,9 @@
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
     'claude-3-7-sonnet-20250219',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229'
+    'claude-4-6-sonnet-20241022',
+    'claude-4-5-haiku-20241022',
+    'claude-4-6-opus-20240229'
 ];
 
 const DEFAULT_PROVIDERS = {
@@ -15,17 +15,101 @@ const DEFAULT_PROVIDERS = {
 };
 
 const LANG_ICONS = {
-    html: 'fab fa-html5', css: 'fab fa-css3-alt',
-    javascript: 'fab fa-js-square', js: 'fab fa-js-square',
-    typescript: 'fab fa-js-square', ts: 'fab fa-js-square',
-    python: 'fab fa-python', py: 'fab fa-python',
-    bash: 'fas fa-terminal', sh: 'fas fa-terminal', shell: 'fas fa-terminal',
-    json: 'fas fa-code', sql: 'fas fa-database',
-    java: 'fab fa-java', cpp: 'fas fa-code', c: 'fas fa-code',
-    rust: 'fas fa-code', go: 'fas fa-code', php: 'fab fa-php',
-    ruby: 'fas fa-gem', swift: 'fab fa-swift', kotlin: 'fas fa-code',
-    markdown: 'fab fa-markdown', md: 'fab fa-markdown',
-    xml: 'fas fa-code', yaml: 'fas fa-cog', yml: 'fas fa-cog',
+    // Web — markup & styles
+    html:       'fab fa-html5',
+    htm:        'fab fa-html5',
+    css:        'fab fa-css3-alt',
+    scss:       'fab fa-sass',
+    sass:       'fab fa-sass',
+    less:       'fab fa-less',
+
+    // JavaScript ecosystem
+    javascript: 'fab fa-js-square',
+    js:         'fab fa-js-square',
+    typescript: 'fab fa-js-square',   // no dedicated FA TS brand icon
+    ts:         'fab fa-js-square',
+    jsx:        'fab fa-react',
+    tsx:        'fab fa-react',
+    vue:        'fab fa-vuejs',
+    svelte:     'fas fa-bolt',
+
+    // Python
+    python:     'fab fa-python',
+    py:         'fab fa-python',
+    ipynb:      'fab fa-python',
+
+    // Systems / compiled
+    c:          'fas fa-microchip',
+    cpp:        'fas fa-microchip',
+    'c++':      'fas fa-microchip',
+    rust:       'fab fa-rust',
+    go:         'fab fa-golang',
+    java:       'fab fa-java',
+    kotlin:     'fas fa-code',        // no FA 6.4 brand icon for Kotlin
+    swift:      'fab fa-swift',
+    dart:       'fas fa-code',
+    scala:      'fas fa-code',
+    wasm:       'fas fa-microchip',
+    assembly:   'fas fa-microchip',
+    asm:        'fas fa-microchip',
+
+    // Shell / scripting
+    bash:       'fas fa-terminal',
+    sh:         'fas fa-terminal',
+    shell:      'fas fa-terminal',
+    zsh:        'fas fa-terminal',
+    fish:       'fas fa-terminal',
+    powershell: 'fas fa-terminal',
+    ps1:        'fas fa-terminal',
+    bat:        'fas fa-terminal',
+    cmd:        'fas fa-terminal',
+    makefile:   'fas fa-wrench',
+
+    // Data / config
+    json:       'fas fa-brackets-curly',
+    yaml:       'fas fa-cog',
+    yml:        'fas fa-cog',
+    toml:       'fas fa-cog',
+    ini:        'fas fa-cog',
+    env:        'fas fa-key',
+    xml:        'fas fa-file-code',
+    csv:        'fas fa-file-csv',
+    diff:       'fas fa-code-compare',
+    patch:      'fas fa-code-compare',
+
+    // Database / query
+    sql:        'fas fa-database',
+    graphql:    'fas fa-circle-nodes',
+    gql:        'fas fa-circle-nodes',
+    prisma:     'fas fa-database',
+
+    // DevOps / infra
+    dockerfile: 'fab fa-docker',
+    docker:     'fab fa-docker',
+    nginx:      'fas fa-server',
+    terraform:  'fas fa-cloud',
+    tf:         'fas fa-cloud',
+    hcl:        'fas fa-cloud',
+
+    // Docs / text
+    markdown:   'fab fa-markdown',
+    md:         'fab fa-markdown',
+    txt:        'fas fa-file-alt',
+    text:       'fas fa-file-alt',
+
+    // Other languages
+    php:        'fab fa-php',
+    ruby:       'fas fa-gem',
+    r:          'fas fa-chart-bar',
+    lua:        'fas fa-moon',
+    perl:       'fas fa-code',
+    haskell:    'fas fa-infinity',
+    hs:         'fas fa-infinity',
+    elixir:     'fas fa-flask',
+    ex:         'fas fa-flask',
+    exs:        'fas fa-flask',
+    solidity:   'fab fa-ethereum',
+    sol:        'fab fa-ethereum',
 };
 
 const PREVIEWABLE_LANGS = ['html', 'svg'];
@@ -1136,12 +1220,12 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
+    wrapper.className = `flex w-full max-w-3xl mx-auto ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group px-2`;
 
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[90%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user rounded-br-sm';
+        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user rounded-br-sm overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
@@ -1153,7 +1237,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
         textDiv.textContent = text;
         bubble.appendChild(textDiv);
     } else {
-        bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+        bubble.className = 'max-w-[85%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden break-words';
 
         if (streaming) {
             // Streaming mode — just a placeholder div that renderStreamingContent will fill
