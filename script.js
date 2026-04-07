@@ -617,9 +617,8 @@ function openArtifactPanel(code, lang) {
         DOM.artifactPanelTabs.classList.add('hidden');
     }
 
-    // Code
-    const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    DOM.artifactPanelCode.innerHTML = escaped;
+    // Code - don't escape HTML content, let it render properly
+    DOM.artifactPanelCode.textContent = code;
     DOM.artifactPanelCode.className = `artifact-code lang-${lang}`;
 
     // Reset panes
