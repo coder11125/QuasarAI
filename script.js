@@ -1,9 +1,9 @@
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
     'claude-3-7-sonnet-20250219',
-    'claude-4-6-sonnet-20241022',
-    'claude-4-5-haiku-20241022',
-    'claude-4-6-opus-20240229'
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229'
 ];
 
 const DEFAULT_PROVIDERS = {
@@ -1220,7 +1220,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex w-full max-w-3xl mx-auto ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group px-2`;
+    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
 
     const bubble = document.createElement('div');
 
