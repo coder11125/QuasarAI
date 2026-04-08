@@ -26,8 +26,8 @@ const LANG_ICONS = {
     // JavaScript ecosystem
     javascript: 'fab fa-js-square',
     js:         'fab fa-js-square',
-    typescript: 'fab fa-js-square',   // no dedicated FA TS brand icon
-    ts:         'fab fa-js-square',
+    typescript: 'fas fa-code',
+    ts:         'fas fa-code',
     jsx:        'fab fa-react',
     tsx:        'fab fa-react',
     vue:        'fab fa-vuejs',
