@@ -1129,9 +1129,12 @@ function renderChat(id) {
             </div>
         `;
     } else {
-        chat.messages.forEach(msg => appendMessageUI(msg.role, msg.text, msg.attachment));
+        const fragment = document.createDocumentFragment();
+        chat.messages.forEach(msg => appendMessageUI(msg.role, msg.text, msg.attachment, false, fragment));
+        DOM.chatWindow.appendChild(fragment);
     }
-    scrollToBottom();
+    // Instant scroll on load — no smooth animation from the top
+    DOM.chatWindow.scrollTop = DOM.chatWindow.scrollHeight;
     validateInput();
 }
 
@@ -1254,7 +1257,8 @@ function finaliseStreamingBubble(wrapper, text) {
 
 // --- MESSAGE UI ---
 // streaming=true creates an empty bubble with a streaming-content div inside
-function appendMessageUI(role, text, attachment = null, streaming = false) {
+// container: optional target to append to instead of DOM.chatWindow (used for batch renders)
+function appendMessageUI(role, text, attachment = null, streaming = false, container = null) {
     if (DOM.chatWindow.querySelector('.fa-meteor.animate-pulse')) {
         DOM.chatWindow.innerHTML = '';
     }
@@ -1365,10 +1369,12 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
     
     wrapper.appendChild(btnContainer);
-    DOM.chatWindow.appendChild(wrapper);
+    (container || DOM.chatWindow).appendChild(wrapper);
 
-    clearTimeout(appendMessageUI.scrollTimeout);
-    appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
+    if (!container) {
+        clearTimeout(appendMessageUI.scrollTimeout);
+        appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
+    }
     return wrapper;
 }
 
