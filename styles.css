@@ -29,8 +29,8 @@ body {
    ============================================ */
 .message-user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
 .dark .message-user { background: linear-gradient(135deg, #2563eb, #4f46e5); }
-.message-ai { background: rgba(255,255,255,0.9); color: #1e293b; border: 1px solid rgba(0,0,0,0.06); }
-.dark .message-ai { background: rgba(30,41,59,0.85); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.06); }
+.message-ai { color: #1e293b; }
+.dark .message-ai { color: #e2e8f0; }
 
 .prose pre { background: #1e293b !important; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
 .prose code { color: #ec4899; background: rgba(128,128,128,0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; }

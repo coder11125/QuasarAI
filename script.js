@@ -1169,7 +1169,7 @@ function finaliseStreamingBubble(wrapper, text) {
     const bubble = wrapper.querySelector('.message-ai');
     if (!bubble) return;
     bubble.innerHTML = ''; // clear streaming content
-    bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+    bubble.className = 'w-full message-ai overflow-hidden';
 
     const segments = parseMessageSegments(text);
     let firstItem = true;
@@ -1178,7 +1178,6 @@ function finaliseStreamingBubble(wrapper, text) {
         if (seg.type === 'text' && seg.content.trim()) {
             const textDiv = document.createElement('div');
             textDiv.className = 'prose-msg';
-            textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
             try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
             catch (e) { textDiv.textContent = seg.content; }
             textDiv.querySelectorAll('p').forEach(p => {
@@ -1189,9 +1188,9 @@ function finaliseStreamingBubble(wrapper, text) {
             firstItem = false;
         } else if (seg.type === 'code') {
             const card = buildArtifactCard(seg.lang, seg.content);
-            const t = firstItem ? '12px' : '4px';
-            const b = isLast ? '12px' : '4px';
-            card.style.margin = `${t} 12px ${b} 12px`;
+            const t = firstItem ? '0' : '4px';
+            const b = isLast ? '0' : '4px';
+            card.style.margin = `${t} 0 ${b} 0`;
             bubble.appendChild(card);
             firstItem = false;
         }
@@ -1219,7 +1218,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
+    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end gap-2' : 'flex-col'} animate-slide-in group`;
 
     const bubble = document.createElement('div');
 
@@ -1236,13 +1235,12 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
         textDiv.textContent = text;
         bubble.appendChild(textDiv);
     } else {
-        bubble.className = 'max-w-[85%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden break-words';
+        bubble.className = 'w-full message-ai overflow-hidden break-words';
 
         if (streaming) {
             // Streaming mode — just a placeholder div that renderStreamingContent will fill
             const streamDiv = document.createElement('div');
             streamDiv.className = 'streaming-content prose-msg';
-            streamDiv.style.padding = '16px 20px';
             streamDiv.innerHTML = '<span class="streaming-cursor">▋</span>';
             bubble.appendChild(streamDiv);
         } else {
@@ -1254,7 +1252,6 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
                 if (seg.type === 'text' && seg.content.trim()) {
                     const textDiv = document.createElement('div');
                     textDiv.className = 'prose-msg';
-                    textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
                     try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
                     catch (e) { textDiv.textContent = seg.content; }
                     textDiv.querySelectorAll('p').forEach(p => {
@@ -1265,9 +1262,9 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
                     firstItem = false;
                 } else if (seg.type === 'code') {
                     const card = buildArtifactCard(seg.lang, seg.content);
-                    const t = firstItem ? '12px' : '4px';
-                    const b = isLast ? '12px' : '4px';
-                    card.style.margin = `${t} 12px ${b} 12px`;
+                    const t = firstItem ? '0' : '4px';
+                    const b = isLast ? '0' : '4px';
+                    card.style.margin = `${t} 0 ${b} 0`;
                     bubble.appendChild(card);
                     firstItem = false;
                 }
@@ -1280,7 +1277,9 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
 
     // Action buttons container
     const btnContainer = document.createElement('div');
-    btnContainer.className = 'flex flex-col items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1';
+    btnContainer.className = role === 'user'
+        ? 'flex flex-col items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1'
+        : 'flex flex-row items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1';
     
     // Copy button
     const copyBtn = document.createElement('button');
@@ -1574,7 +1573,7 @@ DOM.chatForm.onsubmit = async (e) => {
         saveState(state.currentChatId); renderChatList();
     } catch (err) {
         aiWrapper.querySelector('.message-ai').innerHTML = `
-            <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+            <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
     }
 };
 
@@ -1819,7 +1818,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
             renderChatList();
         } catch (err) {
             aiWrapper.querySelector('.message-ai').innerHTML = `
-                <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
         }
     };
     
@@ -1870,10 +1869,10 @@ async function regenerateResponse(aiMessageWrapper) {
     
     // Replace the AI message with a streaming bubble
     aiMessageWrapper.innerHTML = '';
-    aiMessageWrapper.className = 'flex w-full justify-start animate-slide-in gap-2 group';
+    aiMessageWrapper.className = 'flex flex-col w-full animate-slide-in group';
     const streamBubble = document.createElement('div');
-    streamBubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
-    streamBubble.innerHTML = `<div class="streaming-content prose-msg" style="padding:16px 20px"></div>`;
+    streamBubble.className = 'w-full message-ai overflow-hidden';
+    streamBubble.innerHTML = `<div class="streaming-content prose-msg"></div>`;
     aiMessageWrapper.appendChild(streamBubble);
     const aiBubble = streamBubble.querySelector('.streaming-content');
 
@@ -1893,7 +1892,7 @@ async function regenerateResponse(aiMessageWrapper) {
 
     } catch (err) {
         aiMessageWrapper.innerHTML = `
-            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+            <div class="w-full message-ai">
                 <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
             </div>`;
     }
