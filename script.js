@@ -112,7 +112,7 @@ const LANG_ICONS = {
     sol:        'fab fa-ethereum',
 };
 
-const PREVIEWABLE_LANGS = ['html', 'svg'];
+const PREVIEWABLE_LANGS = ['html', 'svg', 'markdown', 'md'];
 
 const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rules strictly:
 1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag. No exceptions.
@@ -588,6 +588,35 @@ DOM.modelSelect.addEventListener('change', (e) => {
 // ARTIFACT SIDE PANEL
 // =============================================
 
+function buildMarkdownPreviewHtml(mdSource) {
+    const body = marked.parse(mdSource);
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.7; color: #1e293b; background: #ffffff; padding: 28px 36px; max-width: 780px; margin: 0 auto; }
+  h1,h2,h3,h4 { font-weight: 700; margin: 1.2em 0 0.4em; line-height: 1.3; }
+  h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } h3 { font-size: 1.15em; }
+  p { margin: 0 0 0.8em; }
+  a { color: #3b82f6; text-decoration: underline; }
+  code { background: #f1f5f9; color: #e11d48; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.875em; font-family: ui-monospace, monospace; }
+  pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; color: inherit; padding: 0; font-size: 0.85em; }
+  blockquote { border-left: 3px solid #cbd5e1; margin: 0.8em 0; padding: 0.4em 1em; color: #64748b; }
+  table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
+  th { background: #f8fafc; font-weight: 600; }
+  ul, ol { padding-left: 1.5em; margin: 0.4em 0 0.8em; }
+  li { margin: 0.25em 0; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.2em 0; }
+  img { max-width: 100%; border-radius: 6px; }
+</style>
+</head>
+<body>${body}</body>
+</html>`;
+}
+
 function openArtifactPanel(code, lang) {
     artifactPanel.open = true;
     artifactPanel.code = code;
@@ -595,6 +624,7 @@ function openArtifactPanel(code, lang) {
     artifactPanel.activeTab = 'code';
 
     const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
+    const isMarkdown = lang === 'markdown' || lang === 'md';
     const icon = LANG_ICONS[lang] || 'fas fa-code';
     const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
 
@@ -603,15 +633,17 @@ function openArtifactPanel(code, lang) {
 
     // Tabs
     if (isPreviewable) {
+        const previewFirst = isMarkdown;
         DOM.artifactPanelTabs.innerHTML = `
-            <button class="artifact-tab active" onclick="switchPanelTab('code', this)">
+            <button class="artifact-tab${previewFirst ? '' : ' active'}" onclick="switchPanelTab('code', this)">
                 <i class="fas fa-code"></i> Code
             </button>
-            <button class="artifact-tab" onclick="switchPanelTab('preview', this)">
+            <button class="artifact-tab${previewFirst ? ' active' : ''}" onclick="switchPanelTab('preview', this)">
                 <i class="fas fa-eye"></i> Preview
             </button>
         `;
         DOM.artifactPanelTabs.classList.remove('hidden');
+        artifactPanel.activeTab = previewFirst ? 'preview' : 'code';
     } else {
         DOM.artifactPanelTabs.innerHTML = '';
         DOM.artifactPanelTabs.classList.add('hidden');
@@ -626,6 +658,14 @@ function openArtifactPanel(code, lang) {
     DOM.artifactPanelPreviewPane.classList.add('hidden');
     DOM.artifactPanelIframe.removeAttribute('srcdoc');
     DOM.artifactPanelIframe.removeAttribute('data-loaded');
+
+    // For markdown, open directly on the preview pane
+    if (isMarkdown) {
+        DOM.artifactPanelCodePane.classList.add('hidden');
+        DOM.artifactPanelPreviewPane.classList.remove('hidden');
+        DOM.artifactPanelIframe.srcdoc = buildMarkdownPreviewHtml(code);
+        DOM.artifactPanelIframe.dataset.loaded = '1';
+    }
 
     // Show panel
     DOM.artifactPanelEl.classList.remove('hidden');
@@ -652,9 +692,12 @@ function switchPanelTab(tab, btn) {
         DOM.artifactPanelCodePane.classList.add('hidden');
         DOM.artifactPanelPreviewPane.classList.remove('hidden');
         if (!DOM.artifactPanelIframe.dataset.loaded) {
+            const lang = artifactPanel.lang;
             let html = artifactPanel.code;
-            if (artifactPanel.lang === 'svg') {
+            if (lang === 'svg') {
                 html = `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">${artifactPanel.code}</body></html>`;
+            } else if (lang === 'markdown' || lang === 'md') {
+                html = buildMarkdownPreviewHtml(artifactPanel.code);
             }
             DOM.artifactPanelIframe.srcdoc = html;
             DOM.artifactPanelIframe.dataset.loaded = '1';
@@ -1142,14 +1185,13 @@ function buildArtifactCard(lang, code) {
                 <span class="artifact-card-meta">${lineCount} line${lineCount !== 1 ? 's' : ''}${isPreviewable ? ' · Live preview' : ''}</span>
             </div>
         </div>
-        <button class="artifact-card-btn" id="${cardId}-btn" title="Open in panel">
+        <div class="artifact-card-btn">
             <i class="fas fa-arrow-up-right-from-square"></i>
             <span>Open</span>
-        </button>
+        </div>
     `;
 
-    // Attach click after element exists
-    card.querySelector(`#${cardId}-btn`).addEventListener('click', () => {
+    card.addEventListener('click', () => {
         openArtifactPanel(card._code, card._lang);
     });
 
@@ -1218,7 +1260,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex flex-col w-full ${role === 'user' ? 'items-center' : ''} animate-slide-in group`;
+    wrapper.className = `flex flex-col w-full ${role === 'user' ? 'items-end' : ''} animate-slide-in group`;
 
     const bubble = document.createElement('div');
 
