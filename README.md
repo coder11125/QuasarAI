@@ -140,6 +140,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 ├── vercel.json          # Vercel routing config
 ├── package.json         # Dependencies
 ├── tsconfig.json        # TypeScript config
+├── CLAUDE.md            # Claude Code instructions
 ├── api/
 │   ├── auth/
 │   │   ├── register.ts  # POST /api/auth/register
