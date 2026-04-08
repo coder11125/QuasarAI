@@ -1223,10 +1223,10 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user rounded-br-sm overflow-hidden break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[75%] px-4 py-3 rounded-3xl message-user overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
-            imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
+            imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-black/10 dark:border-white/10';
             imgDiv.innerHTML = `<img src="${escapeHtml(attachment.dataUrl)}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy">`;
             bubble.appendChild(imgDiv);
         }

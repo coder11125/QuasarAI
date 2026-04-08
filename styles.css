@@ -27,8 +27,8 @@ body {
 /* ============================================
    MESSAGES
    ============================================ */
-.message-user { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
-.dark .message-user { background: linear-gradient(135deg, #2563eb, #4f46e5); }
+.message-user { background: #ebebeb; color: #1a1a1a; }
+.dark .message-user { background: #303030; color: #ececec; }
 .message-ai { color: #1e293b; }
 .dark .message-ai { color: #e2e8f0; }
 
