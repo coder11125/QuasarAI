@@ -1218,12 +1218,12 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end gap-2' : 'flex-col'} animate-slide-in group`;
+    wrapper.className = `flex flex-col w-full ${role === 'user' ? 'items-center' : ''} animate-slide-in group`;
 
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[85%] md:max-w-[75%] px-4 py-3 rounded-3xl message-user overflow-hidden break-words';
+        bubble.className = 'w-fit max-w-[75%] px-4 py-3 rounded-3xl message-user overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-black/10 dark:border-white/10';
@@ -1277,9 +1277,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
 
     // Action buttons container
     const btnContainer = document.createElement('div');
-    btnContainer.className = role === 'user'
-        ? 'flex flex-col items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1'
-        : 'flex flex-row items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1';
+    btnContainer.className = 'flex flex-row items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1';
     
     // Copy button
     const copyBtn = document.createElement('button');
