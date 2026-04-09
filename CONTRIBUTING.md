@@ -30,6 +30,7 @@ quasar-ai/
 ├── vercel.json           # Vercel routing config
 ├── package.json          # Dependencies
 ├── tsconfig.json         # TypeScript compiler config
+├── CLAUDE.md             # Claude Code instructions
 ├── api/
 │   ├── auth/
 │   │   ├── register.ts   # POST /api/auth/register
