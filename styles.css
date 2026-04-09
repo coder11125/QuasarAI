@@ -233,6 +233,7 @@ textarea::-webkit-scrollbar { width: 4px; }
     line-height: 1.65;
     color: inherit;
     max-width: none;
+    font-family: Georgia, 'Times New Roman', Times, serif;
 }
 .prose-msg p {
     margin: 0 0 0.5em 0;
@@ -630,4 +631,34 @@ textarea::-webkit-scrollbar { width: 4px; }
     font-size: 0.9em;
     line-height: 1;
     vertical-align: middle;
+}
+
+/* ============================================
+   FLOATING FOOTER
+   ============================================ */
+
+/* Fade-out mask at the bottom of the chat window so messages
+   dissolve naturally into the floating message bar */
+#chatWindow {
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%);
+}
+
+/* ============================================
+   SMOOTH STREAMING
+   ============================================ */
+
+/* Streaming text container — will-change avoids layout recalcs per frame */
+.streaming-content {
+    will-change: contents;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+/* Finalized prose-msg blocks fade in gently so the markdown snap is invisible */
+@keyframes proseFadeIn {
+    from { opacity: 0.55; }
+    to   { opacity: 1; }
+}
+.prose-msg {
+    animation: proseFadeIn 0.25s ease forwards;
 }

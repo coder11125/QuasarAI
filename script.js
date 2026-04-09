@@ -1,3 +1,11 @@
+// --- rAF STREAMING THROTTLE ---
+// All streaming DOM writes are batched into one rAF per frame (~60fps max),
+// so fast providers (Groq) don't cause layout-thrash and slow providers feel smooth.
+let _rafPending = false;
+let _rafEl = null;
+let _rafText = '';
+let _rafScrollTarget = null;
+
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
     'claude-3-7-sonnet-20250219',
@@ -1201,12 +1209,30 @@ function buildArtifactCard(lang, code) {
     return card;
 }
 
-// Renders plain text into the streaming bubble while tokens are arriving
+// Renders plain text into the streaming bubble while tokens are arriving.
+// Uses rAF batching — at most one DOM write per animation frame (~60fps),
+// so fast providers (Groq) and slow providers look equally smooth.
 function renderStreamingContent(el, text) {
-    // Show plain text during streaming — fast and flicker-free
-    el.textContent = text;
-    // Add a blinking cursor at the end
-    el.innerHTML = escapeHtml(text) + '<span class="streaming-cursor">▋</span>';
+    _rafEl = el;
+    _rafText = text;
+    if (!_rafPending) {
+        _rafPending = true;
+        requestAnimationFrame(() => {
+            _rafPending = false;
+            if (_rafEl) {
+                _rafEl.innerHTML = escapeHtml(_rafText) + '<span class="streaming-cursor">▋</span>';
+            }
+            if (_rafScrollTarget) {
+                _rafScrollTarget.scrollTop = _rafScrollTarget.scrollHeight;
+                _rafScrollTarget = null;
+            }
+        });
+    }
+}
+
+// Queue a smooth scroll to bottom — flushed together with the next rAF render
+function scheduleScrollToBottom(container) {
+    _rafScrollTarget = container;
 }
 
 // Called when streaming is complete — replaces plain text with full markdown + artifact cards
@@ -1608,9 +1634,9 @@ DOM.chatForm.onsubmit = async (e) => {
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
-            // Update the bubble with each new chunk
+            // Throttled DOM update — batched to one write per rAF frame (~60fps)
             renderStreamingContent(aiBubble, partial);
-            scrollToBottom();
+            scheduleScrollToBottom(DOM.chatWindow);
         });
         // Streaming done — do a final full render with markdown/artifacts
         finaliseStreamingBubble(aiWrapper, responseText);
@@ -1855,7 +1881,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
             const history = chat.messages.slice(-12);
             const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
                 renderStreamingContent(aiBubble, partial);
-                scrollToBottom();
+                scheduleScrollToBottom(DOM.chatWindow);
             });
             finaliseStreamingBubble(aiWrapper, responseText);
             chat.messages.push({ role: 'ai', text: responseText });
@@ -1926,7 +1952,7 @@ async function regenerateResponse(aiMessageWrapper) {
         const history = chat.messages.slice(0, actualIndex);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             renderStreamingContent(aiBubble, partial);
-            scrollToBottom();
+            scheduleScrollToBottom(DOM.chatWindow);
         });
 
         chat.messages[actualIndex].text = responseText;
