@@ -637,6 +637,27 @@ textarea::-webkit-scrollbar { width: 4px; }
    FLOATING FOOTER
    ============================================ */
 
+/* Footer floats as an absolute overlay so the chat column has no
+   white block at the bottom. The wrapper is pointer-events:none so
+   wheel/touch events fall through to the chat window; only the form
+   and its children restore pointer-events so they stay interactive. */
+#chatFooter {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    background: transparent;
+}
+
+#chatFooter > div,
+#chatFooter #chatForm,
+#chatFooter #attachmentPreview,
+#chatFooter #attachmentPreview button,
+#chatFooter #chatForm * {
+    pointer-events: auto;
+}
+
 /* Fade-out mask at the bottom of the chat window so messages
    dissolve naturally into the floating message bar */
 #chatWindow {
