@@ -42,7 +42,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Edit & Regenerate** — Edit any sent message and resend, or regenerate any AI response
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes the chat title
-- **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG
+- **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG/Markdown
 - **OCR** — Extract text from images using vision-capable models
 
 ### 📁 **Chat Folders**
