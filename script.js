@@ -123,10 +123,11 @@ const LANG_ICONS = {
 const PREVIEWABLE_LANGS = ['html', 'svg', 'markdown', 'md'];
 
 const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rules strictly:
-1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag. No exceptions.
-   - Use \`\`\`html for HTML, \`\`\`python for Python, \`\`\`javascript for JS, \`\`\`css for CSS, etc.
-   - Even single-line code snippets must use fenced code blocks, never inline backticks for code output.
-   - If a response contains multiple languages, each block must be separately fenced with its own language tag.
+1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag AND a meaningful filename. No exceptions.
+   - Format: \`\`\`language filename.ext  (e.g. \`\`\`html index.html  or  \`\`\`python main.py)
+   - Choose a filename that reflects the actual purpose of the code (e.g. \`\`\`javascript calculator.js, \`\`\`css navbar.css, \`\`\`python scraper.py).
+   - Even single-line code snippets must use fenced code blocks with a language tag and filename.
+   - If a response contains multiple files, each block must have its own language tag and distinct filename.
 2. Never output raw unwrapped code outside of a fenced block.
 3. Be concise, clear, and helpful.`;
 
@@ -625,7 +626,7 @@ function buildMarkdownPreviewHtml(mdSource) {
 </html>`;
 }
 
-function openArtifactPanel(code, lang) {
+function openArtifactPanel(code, lang, filename) {
     artifactPanel.open = true;
     artifactPanel.code = code;
     artifactPanel.lang = lang;
@@ -637,7 +638,9 @@ function openArtifactPanel(code, lang) {
     const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
 
     DOM.artifactPanelIcon.className = icon;
-    DOM.artifactPanelLang.textContent = langLabel;
+    // Show filename as the primary label if available, otherwise the language
+    DOM.artifactPanelLang.textContent = filename || langLabel;
+    DOM.artifactPanelFile.textContent = filename ? langLabel : '';
 
     // Tabs
     if (isPreviewable) {
@@ -1153,14 +1156,19 @@ function scrollToBottom() {
 // --- PARSE SEGMENTS ---
 function parseMessageSegments(text) {
     const segments = [];
-    const re = /```(\w*)\n?([\s\S]*?)```/g;
+    // Captures: ```lang optional-filename\n code ```
+    // The info string after the language tag may contain a filename separated by a space or colon.
+    const re = /```(\w*)(?:[ \t:]+(\S+))?[ \t]*\n?([\s\S]*?)```/g;
     let lastIndex = 0, match;
     while ((match = re.exec(text)) !== null) {
         if (match.index > lastIndex) {
             const tb = text.slice(lastIndex, match.index).trim();
             if (tb) segments.push({ type: 'text', content: tb });
         }
-        segments.push({ type: 'code', lang: (match[1] || 'plaintext').toLowerCase(), content: match[2] });
+        const lang = (match[1] || 'plaintext').toLowerCase();
+        // match[2] is the filename if the AI provided one; sanitise it
+        const rawFilename = match[2] ? match[2].replace(/[<>"'&]/g, '') : null;
+        segments.push({ type: 'code', lang, filename: rawFilename, content: match[3] });
         lastIndex = match.index + match[0].length;
     }
     if (lastIndex < text.length) {
@@ -1172,12 +1180,14 @@ function parseMessageSegments(text) {
 }
 
 // --- ARTIFACT CARD (inline in chat) ---
-function buildArtifactCard(lang, code) {
+function buildArtifactCard(lang, code, filename) {
     const cardId = 'card-' + generateId();
     const icon = LANG_ICONS[lang] || 'fas fa-code';
     const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
     const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
     const lineCount = code.trim().split('\n').length;
+    // Use the AI-provided filename; fall back to a plain language label if absent
+    const displayName = filename || langLabel;
 
     const card = document.createElement('div');
     card.className = 'artifact-card';
@@ -1185,6 +1195,7 @@ function buildArtifactCard(lang, code) {
     // Store data safely
     card._code = code;
     card._lang = lang;
+    card._filename = filename || null;
 
     card.innerHTML = `
         <div class="artifact-card-left">
@@ -1192,7 +1203,8 @@ function buildArtifactCard(lang, code) {
                 <i class="${icon}"></i>
             </div>
             <div class="artifact-card-info">
-                <span class="artifact-card-title">${langLabel}</span>
+                <span class="artifact-card-title">${escapeHtml(displayName)}</span>
+                ${filename ? `<span class="artifact-card-lang-label">${escapeHtml(langLabel)}</span>` : ''}
                 <span class="artifact-card-meta">${lineCount} line${lineCount !== 1 ? 's' : ''}${isPreviewable ? ' · Live preview' : ''}</span>
             </div>
         </div>
@@ -1203,7 +1215,7 @@ function buildArtifactCard(lang, code) {
     `;
 
     card.addEventListener('click', () => {
-        openArtifactPanel(card._code, card._lang);
+        openArtifactPanel(card._code, card._lang, card._filename);
     });
 
     return card;
@@ -1258,7 +1270,7 @@ function finaliseStreamingBubble(wrapper, text) {
             bubble.appendChild(textDiv);
             firstItem = false;
         } else if (seg.type === 'code') {
-            const card = buildArtifactCard(seg.lang, seg.content);
+            const card = buildArtifactCard(seg.lang, seg.content, seg.filename);
             const t = firstItem ? '0' : '4px';
             const b = isLast ? '0' : '4px';
             card.style.margin = `${t} 0 ${b} 0`;
@@ -1333,7 +1345,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
                     bubble.appendChild(textDiv);
                     firstItem = false;
                 } else if (seg.type === 'code') {
-                    const card = buildArtifactCard(seg.lang, seg.content);
+                    const card = buildArtifactCard(seg.lang, seg.content, seg.filename);
                     const t = firstItem ? '0' : '4px';
                     const b = isLast ? '0' : '4px';
                     card.style.margin = `${t} 0 ${b} 0`;
