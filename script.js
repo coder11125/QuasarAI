@@ -271,6 +271,7 @@ const DOM = {
     artifactPanelEl: document.getElementById('artifactPanel'),
     artifactPanelIcon: document.getElementById('artifactPanelIcon'),
     artifactPanelLang: document.getElementById('artifactPanelLang'),
+    artifactPanelFile: document.getElementById('artifactPanelFile'),
     artifactPanelTabs: document.getElementById('artifactPanelTabs'),
     artifactPanelCodePane: document.getElementById('artifactPanelCodePane'),
     artifactPanelPreviewPane: document.getElementById('artifactPanelPreviewPane'),
