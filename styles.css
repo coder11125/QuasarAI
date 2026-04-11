@@ -695,3 +695,68 @@ textarea::-webkit-scrollbar { width: 4px; }
 .prose-msg {
     animation: proseFadeIn 0.25s ease forwards;
 }
+
+/* ============================================
+   iOS SAFARI — NOTCH / DYNAMIC ISLAND SUPPORT
+   ============================================ */
+
+/* Fix 100vh on iOS Safari: the address bar shrinks/grows the viewport,
+   so -webkit-fill-available gives the correct inner height.
+   viewport-fit=cover (set in the meta tag) unlocks the full screen area
+   so the safe-area-inset-* env() values become non-zero on notch devices. */
+body {
+    min-height: 100vh;                   /* non-iOS fallback */
+    min-height: -webkit-fill-available;  /* iOS Safari true inner height */
+}
+
+/* Momentum scrolling for all scrollable regions on iOS */
+#chatWindow,
+#chatList,
+.artifact-panel-code-pane,
+.artifact-panel-preview-pane,
+#settingsModal .overflow-y-auto,
+#ocrModal .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Safe-area insets — only applied on devices that expose them
+   (iPhones with notch or Dynamic Island, and landscape iPads with rounded
+   corners). The @supports guard keeps this a no-op on all other browsers. */
+@supports (padding: env(safe-area-inset-top)) {
+
+    /* Sidebar: clear the status-bar / Dynamic Island in portrait,
+       and the left hardware edge in landscape. */
+    #sidebar {
+        padding-top: env(safe-area-inset-top);
+        padding-left: env(safe-area-inset-left);
+    }
+
+    /* Chat header: extend downward to sit below the notch / Dynamic Island */
+    #chatColumn > header {
+        padding-top: env(safe-area-inset-top);
+        height: calc(4rem + env(safe-area-inset-top));
+    }
+
+    /* Chat footer: lift the message bar above the iOS home indicator */
+    #chatFooter {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
+    }
+
+    /* Auth screen: keep the card away from the notch and home indicator */
+    #authScreen {
+        padding-top:    max(1rem, env(safe-area-inset-top));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        padding-left:   max(1rem, env(safe-area-inset-left));
+        padding-right:  max(1rem, env(safe-area-inset-right));
+    }
+
+    /* Modals: inset the overlay so they don't bleed into hardware corners
+       in landscape (Dynamic Island side) */
+    #settingsModal,
+    #ocrModal {
+        padding-top:    env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left:   env(safe-area-inset-left);
+        padding-right:  env(safe-area-inset-right);
+    }
+}
