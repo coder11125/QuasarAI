@@ -1676,6 +1676,10 @@ DOM.chatForm.onsubmit = async (e) => {
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
+        // Fire-and-forget: replace the placeholder title after the first exchange
+        if (state.chats[state.currentChatId].messages.length === 2) {
+            generateChatTitle(state.currentChatId, provider, modelId, apiKey);
+        }
     } catch (err) {
         if (err.name === 'AbortError') {
             // User stopped generation — finalise whatever arrived so far
@@ -1807,6 +1811,71 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
     }
 
     return fullText || 'No response.';
+}
+
+// --- SMART CHAT TITLE GENERATION ---
+// Fires once after the first exchange (1 user + 1 AI message).
+// Makes a tiny non-streaming call (max 12 tokens) to produce a real title,
+// then replaces the placeholder truncation in the sidebar and header.
+async function generateChatTitle(chatId, provider, modelId, apiKey) {
+    const chat = state.chats[chatId];
+    if (!chat || chat.messages.length !== 2) return;
+
+    const userSnippet = (chat.messages[0].text || '').substring(0, 300);
+    const aiSnippet   = (chat.messages[1].text || '').substring(0, 300);
+    const prompt = `Give this conversation a short title (4 words max). Reply with ONLY the title — no quotes, no punctuation, no explanation.\n\nUser: ${userSnippet}\nAssistant: ${aiSnippet}`;
+
+    try {
+        let url, headers = {}, body = {};
+
+        if (provider === 'anthropic') {
+            url = 'https://api.anthropic.com/v1/messages';
+            headers = {
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            };
+            body = { model: modelId, max_tokens: 12, messages: [{ role: 'user', content: prompt }] };
+
+        } else if (provider === 'google') {
+            url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+            headers = { 'Content-Type': 'application/json' };
+            body = {
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: { maxOutputTokens: 12 }
+            };
+
+        } else {
+            // OpenAI-compatible: openai, groq, openrouter
+            if (provider === 'openai')      url = 'https://api.openai.com/v1/chat/completions';
+            else if (provider === 'groq')   url = 'https://api.groq.com/openai/v1/chat/completions';
+            else                            url = 'https://openrouter.ai/api/v1/chat/completions';
+            headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+            if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'Quasar AI'; }
+            body = { model: modelId, max_tokens: 12, stream: false, messages: [{ role: 'user', content: prompt }] };
+        }
+
+        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        let title = '';
+        if (provider === 'anthropic')       title = data.content?.[0]?.text || '';
+        else if (provider === 'google')     title = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        else                                title = data.choices?.[0]?.message?.content || '';
+
+        // Strip surrounding quotes/punctuation the model sometimes adds
+        title = title.trim().replace(/^["'`]+|["'`]+$/g, '').replace(/\.$/, '').trim().substring(0, 60);
+        if (!title || !state.chats[chatId]) return;
+
+        state.chats[chatId].title = title;
+        renderChatList();
+        if (state.currentChatId === chatId) DOM.currentChatTitle.textContent = title;
+        saveState(chatId);
+    } catch {
+        // silently fail — the placeholder truncation is still in place
+    }
 }
 
 // --- EDIT MESSAGE ---
