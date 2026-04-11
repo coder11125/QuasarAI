@@ -193,7 +193,7 @@
     </aside>
 
     <!-- Main content: chat + artifact panel side by side -->
-    <div id="mainContent" class="flex flex-grow h-full overflow-hidden min-w-0">
+    <div id="mainContent" class="flex flex-grow h-full overflow-hidden min-w-0 relative">
 
         <!-- Chat column -->
         <main id="chatColumn" class="flex flex-col h-full relative bg-white/30 dark:bg-slate-900/30 min-w-0" style="flex:1 1 0%;">
@@ -292,8 +292,13 @@
         <!-- Resize handle -->
         <div id="resizeHandle" class="resize-handle hidden"></div>
 
+        <!-- Artifact backdrop — shown on mobile when the bottom sheet is open -->
+        <div id="artifactBackdrop" class="fixed inset-0 bg-black/50 z-[79] hidden backdrop-blur-sm" onclick="closeArtifactPanel()"></div>
+
         <!-- Artifact panel -->
         <div id="artifactPanel" class="artifact-panel hidden flex-col h-full border-l border-slate-200 dark:border-white/10 bg-[#0d1117] flex-shrink-0">
+            <!-- Mobile swipe-to-dismiss handle (hidden on desktop via CSS) -->
+            <div id="artifactMobileDrag" class="artifact-mobile-drag"></div>
             <!-- Artifact panel header -->
             <div class="artifact-panel-header">
                 <div class="artifact-panel-title">

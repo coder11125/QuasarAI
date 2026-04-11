@@ -757,17 +757,35 @@ function copyArtifactPanel() {
 }
 
 function closeArtifactPanel() {
-    DOM.artifactPanelEl.style.transition = ''; // restore if swipe interrupted it
-    DOM.artifactPanelEl.style.transform  = ''; // clear any inline swipe position
+    // Restore any inline styles set by the swipe gesture
+    DOM.artifactPanelEl.style.transition = '';
+    DOM.artifactPanelEl.style.transform  = '';
+
+    if (!isMobile()) {
+        // On desktop the panel is a flex item. transform:translateX moves it
+        // visually but it keeps its flex width — the chat column stays compressed
+        // for the whole animation duration. Fix: pull it out of the flex flow
+        // immediately by switching to position:absolute (mainContent is relative),
+        // then let the translateX CSS transition play visually as normal.
+        const w = DOM.artifactPanelEl.offsetWidth;
+        DOM.artifactPanelEl.style.position = 'absolute';
+        DOM.artifactPanelEl.style.right    = '0';
+        DOM.artifactPanelEl.style.top      = '0';
+        DOM.artifactPanelEl.style.bottom   = '0';
+        DOM.artifactPanelEl.style.width    = w + 'px';
+    }
+
+    // Trigger the slide-out CSS transition
     DOM.artifactPanelEl.classList.remove('panel-open');
     DOM.artifactBackdrop.classList.add('hidden');
+
     setTimeout(() => {
         DOM.artifactPanelEl.classList.add('hidden');
         DOM.artifactPanelEl.classList.remove('flex');
         DOM.resizeHandle.classList.add('hidden');
-        DOM.artifactPanelEl.style.width = '';
+        DOM.artifactPanelEl.style.cssText = ''; // clear all inline styles at once
         artifactPanel.open = false;
-    }, 300); // match the mobile transition duration
+    }, 320); // covers both desktop (220ms) and mobile (320ms) transitions
 }
 
 function applyPanelWidth(pct) {
