@@ -271,6 +271,14 @@
                             >
                                 Send <i class="fas fa-arrow-up text-xs"></i>
                             </button>
+                            <button
+                                type="button"
+                                id="stopBtn"
+                                onclick="if(_streamController) _streamController.abort()"
+                                class="hidden px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all shadow-sm flex items-center justify-center font-medium gap-2 text-sm"
+                            >
+                                Stop <i class="fas fa-stop text-xs"></i>
+                            </button>
                         </div>
                     </form>
 

@@ -6,8 +6,14 @@ let _rafEl = null;
 let _rafText = '';
 let _rafScrollTarget = null;
 
+// Active AbortController for the current streaming request (null when idle)
+let _streamController = null;
+
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
+    'claude-opus-4-6',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5-20251001',
     'claude-3-7-sonnet-20250219',
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
@@ -253,6 +259,7 @@ const DOM = {
     chatForm: document.getElementById('chatForm'),
     userInput: document.getElementById('userInput'),
     sendBtn: document.getElementById('sendBtn'),
+    stopBtn: document.getElementById('stopBtn'),
     modelSelect: document.getElementById('modelSelect'),
     modelDropdownBtn: document.getElementById('modelDropdownBtn'),
     modelDropdownMenu: document.getElementById('modelDropdownMenu'),
@@ -297,6 +304,17 @@ function showToast(message, type = 'error') {
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
 }
 
+
+// --- STOP / ABORT STREAMING ---
+function enterStreamingUI() {
+    DOM.sendBtn.classList.add('hidden');
+    DOM.stopBtn.classList.remove('hidden');
+}
+function exitStreamingUI() {
+    DOM.stopBtn.classList.add('hidden');
+    DOM.sendBtn.classList.remove('hidden');
+    _streamController = null;
+}
 
 // --- CHAT SEARCH & FILTERING ---
 function getSearchableText(chat) {
@@ -1644,21 +1662,38 @@ DOM.chatForm.onsubmit = async (e) => {
     const aiBubble = aiWrapper.querySelector('.streaming-content');
     requestAnimationFrame(() => scrollToBottom());
 
+    _streamController = new AbortController();
+    enterStreamingUI();
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             // Throttled DOM update — batched to one write per rAF frame (~60fps)
             renderStreamingContent(aiBubble, partial);
             scheduleScrollToBottom(DOM.chatWindow);
-        });
+        }, _streamController.signal);
         // Streaming done — do a final full render with markdown/artifacts
         finaliseStreamingBubble(aiWrapper, responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
     } catch (err) {
-        aiWrapper.querySelector('.message-ai').innerHTML = `
-            <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+        if (err.name === 'AbortError') {
+            // User stopped generation — finalise whatever arrived so far
+            const partial = aiBubble.textContent.replace('▋', '').trim();
+            if (partial) {
+                finaliseStreamingBubble(aiWrapper, partial);
+                state.chats[state.currentChatId].messages.push({ role: 'ai', text: partial });
+                state.chats[state.currentChatId].updatedAt = Date.now();
+                saveState(state.currentChatId); renderChatList();
+            } else {
+                aiWrapper.remove();
+            }
+        } else {
+            aiWrapper.querySelector('.message-ai').innerHTML = `
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+        }
+    } finally {
+        exitStreamingUI();
     }
 };
 
@@ -1669,7 +1704,7 @@ DOM.userInput.addEventListener('keydown', (e) => {
 // --- STREAMING AI PROVIDER ---
 // onChunk(text) is called with each new text chunk as it arrives.
 // Returns the full accumulated response text when complete.
-async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChunk) {
+async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChunk, signal) {
     let url, headers = {}, body = {};
 
     if (provider === 'google') {
@@ -1728,7 +1763,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
         body = { model: modelId, messages: openAiMessages, stream: true };
     }
 
-    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error?.message || errData.error?.type || `HTTP ${response.status}`);
@@ -1889,21 +1924,37 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         const aiWrapper = appendMessageUI('ai', '', null, true);
         const aiBubble = aiWrapper.querySelector('.streaming-content');
         scrollToBottom();
-        
+
+        _streamController = new AbortController();
+        enterStreamingUI();
         try {
             const history = chat.messages.slice(-12);
             const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
                 renderStreamingContent(aiBubble, partial);
                 scheduleScrollToBottom(DOM.chatWindow);
-            });
+            }, _streamController.signal);
             finaliseStreamingBubble(aiWrapper, responseText);
             chat.messages.push({ role: 'ai', text: responseText });
             chat.updatedAt = Date.now();
             saveState(state.currentChatId);
             renderChatList();
         } catch (err) {
-            aiWrapper.querySelector('.message-ai').innerHTML = `
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+            if (err.name === 'AbortError') {
+                const partial = aiBubble.textContent.replace('▋', '').trim();
+                if (partial) {
+                    finaliseStreamingBubble(aiWrapper, partial);
+                    chat.messages.push({ role: 'ai', text: partial });
+                    chat.updatedAt = Date.now();
+                    saveState(state.currentChatId); renderChatList();
+                } else {
+                    aiWrapper.remove();
+                }
+            } else {
+                aiWrapper.querySelector('.message-ai').innerHTML = `
+                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
+            }
+        } finally {
+            exitStreamingUI();
         }
     };
     
@@ -1961,12 +2012,14 @@ async function regenerateResponse(aiMessageWrapper) {
     aiMessageWrapper.appendChild(streamBubble);
     const aiBubble = streamBubble.querySelector('.streaming-content');
 
+    _streamController = new AbortController();
+    enterStreamingUI();
     try {
         const history = chat.messages.slice(0, actualIndex);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             renderStreamingContent(aiBubble, partial);
             scheduleScrollToBottom(DOM.chatWindow);
-        });
+        }, _streamController.signal);
 
         chat.messages[actualIndex].text = responseText;
         chat.updatedAt = Date.now();
@@ -1976,10 +2029,25 @@ async function regenerateResponse(aiMessageWrapper) {
         renderChatList();
 
     } catch (err) {
-        aiMessageWrapper.innerHTML = `
-            <div class="w-full message-ai">
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
-            </div>`;
+        if (err.name === 'AbortError') {
+            const partial = aiBubble.textContent.replace('▋', '').trim();
+            if (partial) {
+                chat.messages[actualIndex].text = partial;
+                chat.updatedAt = Date.now();
+                saveState(state.currentChatId);
+                renderChat(state.currentChatId);
+                renderChatList();
+            } else {
+                aiMessageWrapper.innerHTML = '';
+            }
+        } else {
+            aiMessageWrapper.innerHTML = `
+                <div class="w-full message-ai">
+                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
+                </div>`;
+        }
+    } finally {
+        exitStreamingUI();
     }
 }
 
