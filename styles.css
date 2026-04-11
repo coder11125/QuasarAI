@@ -687,6 +687,74 @@ textarea::-webkit-scrollbar { width: 4px; }
     font-family: Georgia, 'Times New Roman', Times, serif;
 }
 
+/* ============================================
+   MOBILE ARTIFACT PANEL — FULL-SCREEN OVERLAY
+   On screens ≤ 768 px the side panel becomes a
+   full-screen view that slides up from the bottom,
+   matching the Claude mobile app behaviour.
+   ============================================ */
+
+/* Drag-handle pill — only rendered on mobile */
+.artifact-mobile-drag {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0 4px;
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
+}
+.artifact-mobile-drag::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+    /* Show drag handle */
+    .artifact-mobile-drag {
+        display: flex;
+    }
+
+    /* Full-screen overlay — covers the entire viewport */
+    .artifact-panel {
+        position: fixed !important;
+        inset: 0;                          /* top/right/bottom/left: 0 */
+        width: 100% !important;
+        height: 100% !important;
+        min-width: unset !important;
+        border-radius: 0;
+        border: none !important;
+        z-index: 80;
+        /* Slide up from below the screen */
+        transform: translateY(110%) !important;
+        opacity: 1 !important;
+        transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .artifact-panel.panel-open {
+        transform: translateY(0) !important;
+    }
+
+    /* Push the header below the Dynamic Island / notch */
+    .artifact-panel-header {
+        padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        min-height: calc(52px + env(safe-area-inset-top, 0px));
+    }
+
+    /* Lift the code/preview pane above the iOS home indicator */
+    .artifact-panel-body {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    /* Desktop resize handle is meaningless on mobile */
+    #resizeHandle {
+        display: none !important;
+    }
+}
+
 /* Finalized prose-msg blocks fade in gently so the markdown snap is invisible */
 @keyframes proseFadeIn {
     from { opacity: 0.55; }

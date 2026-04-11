@@ -285,7 +285,11 @@ const DOM = {
     artifactPanelCode: document.getElementById('artifactPanelCode'),
     artifactPanelIframe: document.getElementById('artifactPanelIframe'),
     artifactPanelCopyBtn: document.getElementById('artifactPanelCopyBtn'),
+    artifactBackdrop: document.getElementById('artifactBackdrop'),
+    artifactMobileDrag: document.getElementById('artifactMobileDrag'),
 };
+
+function isMobile() { return window.innerWidth <= 768; }
 
 // --- TOAST ---
 function showToast(message, type = 'error') {
@@ -354,6 +358,7 @@ function init() {
 
     setupModelDropdown();
     setupResizeHandle();
+    setupMobileArtifactSwipe();
     setupSearchInput();
     setupSpeechRecognition();
 
@@ -700,10 +705,14 @@ function openArtifactPanel(code, lang, filename) {
     // Show panel
     DOM.artifactPanelEl.classList.remove('hidden');
     DOM.artifactPanelEl.classList.add('flex');
-    DOM.resizeHandle.classList.remove('hidden');
 
-    // Apply width
-    applyPanelWidth(artifactPanel.width);
+    if (isMobile()) {
+        // Full-screen mode: width/height handled entirely by CSS.
+        // No backdrop needed — the panel covers the whole screen.
+    } else {
+        DOM.resizeHandle.classList.remove('hidden');
+        applyPanelWidth(artifactPanel.width);
+    }
 
     requestAnimationFrame(() => {
         DOM.artifactPanelEl.classList.add('panel-open');
@@ -748,14 +757,17 @@ function copyArtifactPanel() {
 }
 
 function closeArtifactPanel() {
+    DOM.artifactPanelEl.style.transition = ''; // restore if swipe interrupted it
+    DOM.artifactPanelEl.style.transform  = ''; // clear any inline swipe position
     DOM.artifactPanelEl.classList.remove('panel-open');
+    DOM.artifactBackdrop.classList.add('hidden');
     setTimeout(() => {
         DOM.artifactPanelEl.classList.add('hidden');
         DOM.artifactPanelEl.classList.remove('flex');
         DOM.resizeHandle.classList.add('hidden');
         DOM.artifactPanelEl.style.width = '';
         artifactPanel.open = false;
-    }, 220);
+    }, 300); // match the mobile transition duration
 }
 
 function applyPanelWidth(pct) {
@@ -763,6 +775,47 @@ function applyPanelWidth(pct) {
     const panelW = Math.round(totalW * pct / 100);
     DOM.artifactPanelEl.style.width = panelW + 'px';
     DOM.artifactPanelEl.style.flex = 'none';
+}
+
+// --- MOBILE ARTIFACT SWIPE-TO-DISMISS ---
+// Attaches touch handlers to the drag-handle pill and panel header so the
+// user can swipe the bottom sheet down to close it on mobile.
+function setupMobileArtifactSwipe() {
+    let startY = 0;
+    let isDragging = false;
+
+    const startDrag = (clientY) => {
+        if (!isMobile() || !artifactPanel.open) return;
+        startY = clientY;
+        isDragging = true;
+        DOM.artifactPanelEl.style.transition = 'none'; // follow finger in real-time
+    };
+
+    const moveDrag = (clientY) => {
+        if (!isDragging) return;
+        const dy = clientY - startY;
+        if (dy > 0) DOM.artifactPanelEl.style.transform = `translateY(${dy}px)`;
+    };
+
+    const endDrag = (clientY) => {
+        if (!isDragging) return;
+        isDragging = false;
+        const dy = clientY - startY;
+        DOM.artifactPanelEl.style.transition = ''; // restore CSS transition
+        if (dy > 90) {
+            closeArtifactPanel();
+        } else {
+            DOM.artifactPanelEl.style.transform = 'translateY(0)'; // snap back
+        }
+    };
+
+    [DOM.artifactMobileDrag, document.querySelector('.artifact-panel-header')].forEach(el => {
+        if (!el) return;
+        el.addEventListener('touchstart', e => startDrag(e.touches[0].clientY), { passive: true });
+    });
+
+    document.addEventListener('touchmove',  e => moveDrag(e.touches[0].clientY),      { passive: true });
+    document.addEventListener('touchend',   e => endDrag(e.changedTouches[0].clientY));
 }
 
 // --- RESIZE HANDLE ---
