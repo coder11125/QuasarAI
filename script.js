@@ -1222,7 +1222,7 @@ function renderChat(id) {
     if (chat.messages.length === 0) {
         DOM.chatWindow.innerHTML = `
             <div class="h-full flex flex-col items-center justify-center text-center opacity-60">
-                <div class="w-16 h-16 rounded-2xl bg-brand-500 mx-auto flex items-center justify-center text-white shadow-xl mb-6 text-3xl animate-pulse">
+                <div class="w-16 h-16 rounded-2xl bg-brand-500 mx-auto flex items-center justify-center text-white shadow-xl mb-6 text-3xl">
                     <i class="fas fa-meteor"></i>
                 </div>
                 <h2 class="text-2xl font-bold text-slate-800 dark:text-white">How can I help you today?</h2>
