@@ -1,19 +1,5 @@
-// --- rAF STREAMING THROTTLE ---
-// All streaming DOM writes are batched into one rAF per frame (~60fps max),
-// so fast providers (Groq) don't cause layout-thrash and slow providers feel smooth.
-let _rafPending = false;
-let _rafEl = null;
-let _rafText = '';
-let _rafScrollTarget = null;
-
-// Active AbortController for the current streaming request (null when idle)
-let _streamController = null;
-
 // --- 1. STATE & CONSTANTS ---
 const ANTHROPIC_HARDCODED_MODELS = [
-    'claude-opus-4-6',
-    'claude-sonnet-4-6',
-    'claude-haiku-4-5-20251001',
     'claude-3-7-sonnet-20250219',
     'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
@@ -40,8 +26,8 @@ const LANG_ICONS = {
     // JavaScript ecosystem
     javascript: 'fab fa-js-square',
     js:         'fab fa-js-square',
-    typescript: 'fas fa-code',
-    ts:         'fas fa-code',
+    typescript: 'fab fa-js-square',   // no dedicated FA TS brand icon
+    ts:         'fab fa-js-square',
     jsx:        'fab fa-react',
     tsx:        'fab fa-react',
     vue:        'fab fa-vuejs',
@@ -126,14 +112,13 @@ const LANG_ICONS = {
     sol:        'fab fa-ethereum',
 };
 
-const PREVIEWABLE_LANGS = ['html', 'svg', 'markdown', 'md'];
+const PREVIEWABLE_LANGS = ['html', 'svg'];
 
 const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rules strictly:
-1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag AND a meaningful filename. No exceptions.
-   - Format: \`\`\`language filename.ext  (e.g. \`\`\`html index.html  or  \`\`\`python main.py)
-   - Choose a filename that reflects the actual purpose of the code (e.g. \`\`\`javascript calculator.js, \`\`\`css navbar.css, \`\`\`python scraper.py).
-   - Even single-line code snippets must use fenced code blocks with a language tag and filename.
-   - If a response contains multiple files, each block must have its own language tag and distinct filename.
+1. ALWAYS wrap ALL code in fenced code blocks with the correct language tag. No exceptions.
+   - Use \`\`\`html for HTML, \`\`\`python for Python, \`\`\`javascript for JS, \`\`\`css for CSS, etc.
+   - Even single-line code snippets must use fenced code blocks, never inline backticks for code output.
+   - If a response contains multiple languages, each block must be separately fenced with its own language tag.
 2. Never output raw unwrapped code outside of a fenced block.
 3. Be concise, clear, and helpful.`;
 
@@ -259,7 +244,6 @@ const DOM = {
     chatForm: document.getElementById('chatForm'),
     userInput: document.getElementById('userInput'),
     sendBtn: document.getElementById('sendBtn'),
-    stopBtn: document.getElementById('stopBtn'),
     modelSelect: document.getElementById('modelSelect'),
     modelDropdownBtn: document.getElementById('modelDropdownBtn'),
     modelDropdownMenu: document.getElementById('modelDropdownMenu'),
@@ -278,18 +262,13 @@ const DOM = {
     artifactPanelEl: document.getElementById('artifactPanel'),
     artifactPanelIcon: document.getElementById('artifactPanelIcon'),
     artifactPanelLang: document.getElementById('artifactPanelLang'),
-    artifactPanelFile: document.getElementById('artifactPanelFile'),
     artifactPanelTabs: document.getElementById('artifactPanelTabs'),
     artifactPanelCodePane: document.getElementById('artifactPanelCodePane'),
     artifactPanelPreviewPane: document.getElementById('artifactPanelPreviewPane'),
     artifactPanelCode: document.getElementById('artifactPanelCode'),
     artifactPanelIframe: document.getElementById('artifactPanelIframe'),
     artifactPanelCopyBtn: document.getElementById('artifactPanelCopyBtn'),
-    artifactBackdrop: document.getElementById('artifactBackdrop'),
-    artifactMobileDrag: document.getElementById('artifactMobileDrag'),
 };
-
-function isMobile() { return window.innerWidth <= 768; }
 
 // --- TOAST ---
 function showToast(message, type = 'error') {
@@ -308,17 +287,6 @@ function showToast(message, type = 'error') {
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
 }
 
-
-// --- STOP / ABORT STREAMING ---
-function enterStreamingUI() {
-    DOM.sendBtn.classList.add('hidden');
-    DOM.stopBtn.classList.remove('hidden');
-}
-function exitStreamingUI() {
-    DOM.stopBtn.classList.add('hidden');
-    DOM.sendBtn.classList.remove('hidden');
-    _streamController = null;
-}
 
 // --- CHAT SEARCH & FILTERING ---
 function getSearchableText(chat) {
@@ -358,7 +326,6 @@ function init() {
 
     setupModelDropdown();
     setupResizeHandle();
-    setupMobileArtifactSwipe();
     setupSearchInput();
     setupSpeechRecognition();
 
@@ -621,64 +588,30 @@ DOM.modelSelect.addEventListener('change', (e) => {
 // ARTIFACT SIDE PANEL
 // =============================================
 
-function buildMarkdownPreviewHtml(mdSource) {
-    const body = marked.parse(mdSource);
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.7; color: #1e293b; background: #ffffff; padding: 28px 36px; max-width: 780px; margin: 0 auto; }
-  h1,h2,h3,h4 { font-weight: 700; margin: 1.2em 0 0.4em; line-height: 1.3; }
-  h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } h3 { font-size: 1.15em; }
-  p { margin: 0 0 0.8em; }
-  a { color: #3b82f6; text-decoration: underline; }
-  code { background: #f1f5f9; color: #e11d48; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.875em; font-family: ui-monospace, monospace; }
-  pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; }
-  pre code { background: none; color: inherit; padding: 0; font-size: 0.85em; }
-  blockquote { border-left: 3px solid #cbd5e1; margin: 0.8em 0; padding: 0.4em 1em; color: #64748b; }
-  table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
-  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
-  th { background: #f8fafc; font-weight: 600; }
-  ul, ol { padding-left: 1.5em; margin: 0.4em 0 0.8em; }
-  li { margin: 0.25em 0; }
-  hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.2em 0; }
-  img { max-width: 100%; border-radius: 6px; }
-</style>
-</head>
-<body>${body}</body>
-</html>`;
-}
-
-function openArtifactPanel(code, lang, filename) {
+function openArtifactPanel(code, lang) {
     artifactPanel.open = true;
     artifactPanel.code = code;
     artifactPanel.lang = lang;
     artifactPanel.activeTab = 'code';
 
     const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
-    const isMarkdown = lang === 'markdown' || lang === 'md';
     const icon = LANG_ICONS[lang] || 'fas fa-code';
     const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
 
     DOM.artifactPanelIcon.className = icon;
-    // Show filename as the primary label if available, otherwise the language
-    DOM.artifactPanelLang.textContent = filename || langLabel;
-    DOM.artifactPanelFile.textContent = filename ? langLabel : '';
+    DOM.artifactPanelLang.textContent = langLabel;
 
     // Tabs
     if (isPreviewable) {
-        const previewFirst = isMarkdown;
         DOM.artifactPanelTabs.innerHTML = `
-            <button class="artifact-tab${previewFirst ? '' : ' active'}" onclick="switchPanelTab('code', this)">
+            <button class="artifact-tab active" onclick="switchPanelTab('code', this)">
                 <i class="fas fa-code"></i> Code
             </button>
-            <button class="artifact-tab${previewFirst ? ' active' : ''}" onclick="switchPanelTab('preview', this)">
+            <button class="artifact-tab" onclick="switchPanelTab('preview', this)">
                 <i class="fas fa-eye"></i> Preview
             </button>
         `;
         DOM.artifactPanelTabs.classList.remove('hidden');
-        artifactPanel.activeTab = previewFirst ? 'preview' : 'code';
     } else {
         DOM.artifactPanelTabs.innerHTML = '';
         DOM.artifactPanelTabs.classList.add('hidden');
@@ -694,25 +627,13 @@ function openArtifactPanel(code, lang, filename) {
     DOM.artifactPanelIframe.removeAttribute('srcdoc');
     DOM.artifactPanelIframe.removeAttribute('data-loaded');
 
-    // For markdown, open directly on the preview pane
-    if (isMarkdown) {
-        DOM.artifactPanelCodePane.classList.add('hidden');
-        DOM.artifactPanelPreviewPane.classList.remove('hidden');
-        DOM.artifactPanelIframe.srcdoc = buildMarkdownPreviewHtml(code);
-        DOM.artifactPanelIframe.dataset.loaded = '1';
-    }
-
     // Show panel
     DOM.artifactPanelEl.classList.remove('hidden');
     DOM.artifactPanelEl.classList.add('flex');
+    DOM.resizeHandle.classList.remove('hidden');
 
-    if (isMobile()) {
-        // Full-screen mode: width/height handled entirely by CSS.
-        // No backdrop needed — the panel covers the whole screen.
-    } else {
-        DOM.resizeHandle.classList.remove('hidden');
-        applyPanelWidth(artifactPanel.width);
-    }
+    // Apply width
+    applyPanelWidth(artifactPanel.width);
 
     requestAnimationFrame(() => {
         DOM.artifactPanelEl.classList.add('panel-open');
@@ -731,12 +652,9 @@ function switchPanelTab(tab, btn) {
         DOM.artifactPanelCodePane.classList.add('hidden');
         DOM.artifactPanelPreviewPane.classList.remove('hidden');
         if (!DOM.artifactPanelIframe.dataset.loaded) {
-            const lang = artifactPanel.lang;
             let html = artifactPanel.code;
-            if (lang === 'svg') {
+            if (artifactPanel.lang === 'svg') {
                 html = `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">${artifactPanel.code}</body></html>`;
-            } else if (lang === 'markdown' || lang === 'md') {
-                html = buildMarkdownPreviewHtml(artifactPanel.code);
             }
             DOM.artifactPanelIframe.srcdoc = html;
             DOM.artifactPanelIframe.dataset.loaded = '1';
@@ -757,35 +675,14 @@ function copyArtifactPanel() {
 }
 
 function closeArtifactPanel() {
-    // Restore any inline styles set by the swipe gesture
-    DOM.artifactPanelEl.style.transition = '';
-    DOM.artifactPanelEl.style.transform  = '';
-
-    if (!isMobile()) {
-        // On desktop the panel is a flex item. transform:translateX moves it
-        // visually but it keeps its flex width — the chat column stays compressed
-        // for the whole animation duration. Fix: pull it out of the flex flow
-        // immediately by switching to position:absolute (mainContent is relative),
-        // then let the translateX CSS transition play visually as normal.
-        const w = DOM.artifactPanelEl.offsetWidth;
-        DOM.artifactPanelEl.style.position = 'absolute';
-        DOM.artifactPanelEl.style.right    = '0';
-        DOM.artifactPanelEl.style.top      = '0';
-        DOM.artifactPanelEl.style.bottom   = '0';
-        DOM.artifactPanelEl.style.width    = w + 'px';
-    }
-
-    // Trigger the slide-out CSS transition
     DOM.artifactPanelEl.classList.remove('panel-open');
-    DOM.artifactBackdrop.classList.add('hidden');
-
     setTimeout(() => {
         DOM.artifactPanelEl.classList.add('hidden');
         DOM.artifactPanelEl.classList.remove('flex');
         DOM.resizeHandle.classList.add('hidden');
-        DOM.artifactPanelEl.style.cssText = ''; // clear all inline styles at once
+        DOM.artifactPanelEl.style.width = '';
         artifactPanel.open = false;
-    }, 320); // covers both desktop (220ms) and mobile (320ms) transitions
+    }, 220);
 }
 
 function applyPanelWidth(pct) {
@@ -793,47 +690,6 @@ function applyPanelWidth(pct) {
     const panelW = Math.round(totalW * pct / 100);
     DOM.artifactPanelEl.style.width = panelW + 'px';
     DOM.artifactPanelEl.style.flex = 'none';
-}
-
-// --- MOBILE ARTIFACT SWIPE-TO-DISMISS ---
-// Attaches touch handlers to the drag-handle pill and panel header so the
-// user can swipe the bottom sheet down to close it on mobile.
-function setupMobileArtifactSwipe() {
-    let startY = 0;
-    let isDragging = false;
-
-    const startDrag = (clientY) => {
-        if (!isMobile() || !artifactPanel.open) return;
-        startY = clientY;
-        isDragging = true;
-        DOM.artifactPanelEl.style.transition = 'none'; // follow finger in real-time
-    };
-
-    const moveDrag = (clientY) => {
-        if (!isDragging) return;
-        const dy = clientY - startY;
-        if (dy > 0) DOM.artifactPanelEl.style.transform = `translateY(${dy}px)`;
-    };
-
-    const endDrag = (clientY) => {
-        if (!isDragging) return;
-        isDragging = false;
-        const dy = clientY - startY;
-        DOM.artifactPanelEl.style.transition = ''; // restore CSS transition
-        if (dy > 90) {
-            closeArtifactPanel();
-        } else {
-            DOM.artifactPanelEl.style.transform = 'translateY(0)'; // snap back
-        }
-    };
-
-    [DOM.artifactMobileDrag, document.querySelector('.artifact-panel-header')].forEach(el => {
-        if (!el) return;
-        el.addEventListener('touchstart', e => startDrag(e.touches[0].clientY), { passive: true });
-    });
-
-    document.addEventListener('touchmove',  e => moveDrag(e.touches[0].clientY),      { passive: true });
-    document.addEventListener('touchend',   e => endDrag(e.changedTouches[0].clientY));
 }
 
 // --- RESIZE HANDLE ---
@@ -1222,7 +1078,7 @@ function renderChat(id) {
     if (chat.messages.length === 0) {
         DOM.chatWindow.innerHTML = `
             <div class="h-full flex flex-col items-center justify-center text-center opacity-60">
-                <div class="w-16 h-16 rounded-2xl bg-brand-500 mx-auto flex items-center justify-center text-white shadow-xl mb-6 text-3xl">
+                <div class="w-16 h-16 rounded-2xl bg-brand-500 mx-auto flex items-center justify-center text-white shadow-xl mb-6 text-3xl animate-pulse">
                     <i class="fas fa-meteor"></i>
                 </div>
                 <h2 class="text-2xl font-bold text-slate-800 dark:text-white">How can I help you today?</h2>
@@ -1230,12 +1086,9 @@ function renderChat(id) {
             </div>
         `;
     } else {
-        const fragment = document.createDocumentFragment();
-        chat.messages.forEach(msg => appendMessageUI(msg.role, msg.text, msg.attachment, false, fragment));
-        DOM.chatWindow.appendChild(fragment);
+        chat.messages.forEach(msg => appendMessageUI(msg.role, msg.text, msg.attachment));
     }
-    // Instant scroll on load — no smooth animation from the top
-    DOM.chatWindow.scrollTop = DOM.chatWindow.scrollHeight;
+    scrollToBottom();
     validateInput();
 }
 
@@ -1246,19 +1099,14 @@ function scrollToBottom() {
 // --- PARSE SEGMENTS ---
 function parseMessageSegments(text) {
     const segments = [];
-    // Captures: ```lang optional-filename\n code ```
-    // The info string after the language tag may contain a filename separated by a space or colon.
-    const re = /```(\w*)(?:[ \t:]+(\S+))?[ \t]*\n?([\s\S]*?)```/g;
+    const re = /```(\w*)\n?([\s\S]*?)```/g;
     let lastIndex = 0, match;
     while ((match = re.exec(text)) !== null) {
         if (match.index > lastIndex) {
             const tb = text.slice(lastIndex, match.index).trim();
             if (tb) segments.push({ type: 'text', content: tb });
         }
-        const lang = (match[1] || 'plaintext').toLowerCase();
-        // match[2] is the filename if the AI provided one; sanitise it
-        const rawFilename = match[2] ? match[2].replace(/[<>"'&]/g, '') : null;
-        segments.push({ type: 'code', lang, filename: rawFilename, content: match[3] });
+        segments.push({ type: 'code', lang: (match[1] || 'plaintext').toLowerCase(), content: match[2] });
         lastIndex = match.index + match[0].length;
     }
     if (lastIndex < text.length) {
@@ -1270,14 +1118,12 @@ function parseMessageSegments(text) {
 }
 
 // --- ARTIFACT CARD (inline in chat) ---
-function buildArtifactCard(lang, code, filename) {
+function buildArtifactCard(lang, code) {
     const cardId = 'card-' + generateId();
     const icon = LANG_ICONS[lang] || 'fas fa-code';
     const langLabel = lang === 'plaintext' ? 'Code' : lang.toUpperCase();
     const isPreviewable = PREVIEWABLE_LANGS.includes(lang);
     const lineCount = code.trim().split('\n').length;
-    // Use the AI-provided filename; fall back to a plain language label if absent
-    const displayName = filename || langLabel;
 
     const card = document.createElement('div');
     card.className = 'artifact-card';
@@ -1285,7 +1131,6 @@ function buildArtifactCard(lang, code, filename) {
     // Store data safely
     card._code = code;
     card._lang = lang;
-    card._filename = filename || null;
 
     card.innerHTML = `
         <div class="artifact-card-left">
@@ -1293,48 +1138,30 @@ function buildArtifactCard(lang, code, filename) {
                 <i class="${icon}"></i>
             </div>
             <div class="artifact-card-info">
-                <span class="artifact-card-title">${escapeHtml(displayName)}</span>
-                ${filename ? `<span class="artifact-card-lang-label">${escapeHtml(langLabel)}</span>` : ''}
+                <span class="artifact-card-title">${langLabel}</span>
                 <span class="artifact-card-meta">${lineCount} line${lineCount !== 1 ? 's' : ''}${isPreviewable ? ' · Live preview' : ''}</span>
             </div>
         </div>
-        <div class="artifact-card-btn">
+        <button class="artifact-card-btn" id="${cardId}-btn" title="Open in panel">
             <i class="fas fa-arrow-up-right-from-square"></i>
             <span>Open</span>
-        </div>
+        </button>
     `;
 
-    card.addEventListener('click', () => {
-        openArtifactPanel(card._code, card._lang, card._filename);
+    // Attach click after element exists
+    card.querySelector(`#${cardId}-btn`).addEventListener('click', () => {
+        openArtifactPanel(card._code, card._lang);
     });
 
     return card;
 }
 
-// Renders plain text into the streaming bubble while tokens are arriving.
-// Uses rAF batching — at most one DOM write per animation frame (~60fps),
-// so fast providers (Groq) and slow providers look equally smooth.
+// Renders plain text into the streaming bubble while tokens are arriving
 function renderStreamingContent(el, text) {
-    _rafEl = el;
-    _rafText = text;
-    if (!_rafPending) {
-        _rafPending = true;
-        requestAnimationFrame(() => {
-            _rafPending = false;
-            if (_rafEl) {
-                _rafEl.innerHTML = escapeHtml(_rafText) + '<span class="streaming-cursor">▋</span>';
-            }
-            if (_rafScrollTarget) {
-                _rafScrollTarget.scrollTop = _rafScrollTarget.scrollHeight;
-                _rafScrollTarget = null;
-            }
-        });
-    }
-}
-
-// Queue a smooth scroll to bottom — flushed together with the next rAF render
-function scheduleScrollToBottom(container) {
-    _rafScrollTarget = container;
+    // Show plain text during streaming — fast and flicker-free
+    el.textContent = text;
+    // Add a blinking cursor at the end
+    el.innerHTML = escapeHtml(text) + '<span class="streaming-cursor">▋</span>';
 }
 
 // Called when streaming is complete — replaces plain text with full markdown + artifact cards
@@ -1342,7 +1169,7 @@ function finaliseStreamingBubble(wrapper, text) {
     const bubble = wrapper.querySelector('.message-ai');
     if (!bubble) return;
     bubble.innerHTML = ''; // clear streaming content
-    bubble.className = 'w-full message-ai overflow-hidden';
+    bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
 
     const segments = parseMessageSegments(text);
     let firstItem = true;
@@ -1351,6 +1178,7 @@ function finaliseStreamingBubble(wrapper, text) {
         if (seg.type === 'text' && seg.content.trim()) {
             const textDiv = document.createElement('div');
             textDiv.className = 'prose-msg';
+            textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
             try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
             catch (e) { textDiv.textContent = seg.content; }
             textDiv.querySelectorAll('p').forEach(p => {
@@ -1360,10 +1188,10 @@ function finaliseStreamingBubble(wrapper, text) {
             bubble.appendChild(textDiv);
             firstItem = false;
         } else if (seg.type === 'code') {
-            const card = buildArtifactCard(seg.lang, seg.content, seg.filename);
-            const t = firstItem ? '0' : '4px';
-            const b = isLast ? '0' : '4px';
-            card.style.margin = `${t} 0 ${b} 0`;
+            const card = buildArtifactCard(seg.lang, seg.content);
+            const t = firstItem ? '12px' : '4px';
+            const b = isLast ? '12px' : '4px';
+            card.style.margin = `${t} 12px ${b} 12px`;
             bubble.appendChild(card);
             firstItem = false;
         }
@@ -1385,22 +1213,21 @@ function finaliseStreamingBubble(wrapper, text) {
 
 // --- MESSAGE UI ---
 // streaming=true creates an empty bubble with a streaming-content div inside
-// container: optional target to append to instead of DOM.chatWindow (used for batch renders)
-function appendMessageUI(role, text, attachment = null, streaming = false, container = null) {
+function appendMessageUI(role, text, attachment = null, streaming = false) {
     if (DOM.chatWindow.querySelector('.fa-meteor.animate-pulse')) {
         DOM.chatWindow.innerHTML = '';
     }
 
     const wrapper = document.createElement('div');
-    wrapper.className = `flex flex-col w-full ${role === 'user' ? 'items-end' : ''} animate-slide-in group`;
+    wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
 
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'w-fit max-w-[75%] px-4 py-3 rounded-3xl message-user overflow-hidden break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user rounded-br-sm overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
-            imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-black/10 dark:border-white/10';
+            imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
             imgDiv.innerHTML = `<img src="${escapeHtml(attachment.dataUrl)}" alt="Attachment" class="w-full h-auto object-cover" loading="lazy">`;
             bubble.appendChild(imgDiv);
         }
@@ -1409,12 +1236,13 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
         textDiv.textContent = text;
         bubble.appendChild(textDiv);
     } else {
-        bubble.className = 'w-full message-ai overflow-hidden break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden break-words';
 
         if (streaming) {
             // Streaming mode — just a placeholder div that renderStreamingContent will fill
             const streamDiv = document.createElement('div');
             streamDiv.className = 'streaming-content prose-msg';
+            streamDiv.style.padding = '16px 20px';
             streamDiv.innerHTML = '<span class="streaming-cursor">▋</span>';
             bubble.appendChild(streamDiv);
         } else {
@@ -1426,6 +1254,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
                 if (seg.type === 'text' && seg.content.trim()) {
                     const textDiv = document.createElement('div');
                     textDiv.className = 'prose-msg';
+                    textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
                     try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
                     catch (e) { textDiv.textContent = seg.content; }
                     textDiv.querySelectorAll('p').forEach(p => {
@@ -1435,10 +1264,10 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
                     bubble.appendChild(textDiv);
                     firstItem = false;
                 } else if (seg.type === 'code') {
-                    const card = buildArtifactCard(seg.lang, seg.content, seg.filename);
-                    const t = firstItem ? '0' : '4px';
-                    const b = isLast ? '0' : '4px';
-                    card.style.margin = `${t} 0 ${b} 0`;
+                    const card = buildArtifactCard(seg.lang, seg.content);
+                    const t = firstItem ? '12px' : '4px';
+                    const b = isLast ? '12px' : '4px';
+                    card.style.margin = `${t} 12px ${b} 12px`;
                     bubble.appendChild(card);
                     firstItem = false;
                 }
@@ -1451,7 +1280,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
 
     // Action buttons container
     const btnContainer = document.createElement('div');
-    btnContainer.className = 'flex flex-row items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1';
+    btnContainer.className = 'flex flex-col items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1';
     
     // Copy button
     const copyBtn = document.createElement('button');
@@ -1497,12 +1326,10 @@ function appendMessageUI(role, text, attachment = null, streaming = false, conta
     }
     
     wrapper.appendChild(btnContainer);
-    (container || DOM.chatWindow).appendChild(wrapper);
+    DOM.chatWindow.appendChild(wrapper);
 
-    if (!container) {
-        clearTimeout(appendMessageUI.scrollTimeout);
-        appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
-    }
+    clearTimeout(appendMessageUI.scrollTimeout);
+    appendMessageUI.scrollTimeout = setTimeout(scrollToBottom, 0);
     return wrapper;
 }
 
@@ -1733,42 +1560,21 @@ DOM.chatForm.onsubmit = async (e) => {
     const aiBubble = aiWrapper.querySelector('.streaming-content');
     requestAnimationFrame(() => scrollToBottom());
 
-    _streamController = new AbortController();
-    enterStreamingUI();
     try {
         const history = state.chats[state.currentChatId].messages.slice(-12);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
-            // Throttled DOM update — batched to one write per rAF frame (~60fps)
+            // Update the bubble with each new chunk
             renderStreamingContent(aiBubble, partial);
-            scheduleScrollToBottom(DOM.chatWindow);
-        }, _streamController.signal);
+            scrollToBottom();
+        });
         // Streaming done — do a final full render with markdown/artifacts
         finaliseStreamingBubble(aiWrapper, responseText);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
-        // Fire-and-forget: replace the placeholder title after the first exchange
-        if (state.chats[state.currentChatId].messages.length === 2) {
-            generateChatTitle(state.currentChatId, provider, modelId, apiKey);
-        }
     } catch (err) {
-        if (err.name === 'AbortError') {
-            // User stopped generation — finalise whatever arrived so far
-            const partial = aiBubble.textContent.replace('▋', '').trim();
-            if (partial) {
-                finaliseStreamingBubble(aiWrapper, partial);
-                state.chats[state.currentChatId].messages.push({ role: 'ai', text: partial });
-                state.chats[state.currentChatId].updatedAt = Date.now();
-                saveState(state.currentChatId); renderChatList();
-            } else {
-                aiWrapper.remove();
-            }
-        } else {
-            aiWrapper.querySelector('.message-ai').innerHTML = `
-                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
-        }
-    } finally {
-        exitStreamingUI();
+        aiWrapper.querySelector('.message-ai').innerHTML = `
+            <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
     }
 };
 
@@ -1779,7 +1585,7 @@ DOM.userInput.addEventListener('keydown', (e) => {
 // --- STREAMING AI PROVIDER ---
 // onChunk(text) is called with each new text chunk as it arrives.
 // Returns the full accumulated response text when complete.
-async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChunk, signal) {
+async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChunk) {
     let url, headers = {}, body = {};
 
     if (provider === 'google') {
@@ -1838,7 +1644,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
         body = { model: modelId, messages: openAiMessages, stream: true };
     }
 
-    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
+    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error?.message || errData.error?.type || `HTTP ${response.status}`);
@@ -1884,71 +1690,6 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
     return fullText || 'No response.';
 }
 
-// --- SMART CHAT TITLE GENERATION ---
-// Fires once after the first exchange (1 user + 1 AI message).
-// Makes a tiny non-streaming call (max 12 tokens) to produce a real title,
-// then replaces the placeholder truncation in the sidebar and header.
-async function generateChatTitle(chatId, provider, modelId, apiKey) {
-    const chat = state.chats[chatId];
-    if (!chat || chat.messages.length !== 2) return;
-
-    const userSnippet = (chat.messages[0].text || '').substring(0, 300);
-    const aiSnippet   = (chat.messages[1].text || '').substring(0, 300);
-    const prompt = `Give this conversation a short title (4 words max). Reply with ONLY the title — no quotes, no punctuation, no explanation.\n\nUser: ${userSnippet}\nAssistant: ${aiSnippet}`;
-
-    try {
-        let url, headers = {}, body = {};
-
-        if (provider === 'anthropic') {
-            url = 'https://api.anthropic.com/v1/messages';
-            headers = {
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            };
-            body = { model: modelId, max_tokens: 12, messages: [{ role: 'user', content: prompt }] };
-
-        } else if (provider === 'google') {
-            url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-            headers = { 'Content-Type': 'application/json' };
-            body = {
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: { maxOutputTokens: 12 }
-            };
-
-        } else {
-            // OpenAI-compatible: openai, groq, openrouter
-            if (provider === 'openai')      url = 'https://api.openai.com/v1/chat/completions';
-            else if (provider === 'groq')   url = 'https://api.groq.com/openai/v1/chat/completions';
-            else                            url = 'https://openrouter.ai/api/v1/chat/completions';
-            headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
-            if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'Quasar AI'; }
-            body = { model: modelId, max_tokens: 12, stream: false, messages: [{ role: 'user', content: prompt }] };
-        }
-
-        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-        if (!res.ok) return;
-
-        const data = await res.json();
-        let title = '';
-        if (provider === 'anthropic')       title = data.content?.[0]?.text || '';
-        else if (provider === 'google')     title = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        else                                title = data.choices?.[0]?.message?.content || '';
-
-        // Strip surrounding quotes/punctuation the model sometimes adds
-        title = title.trim().replace(/^["'`]+|["'`]+$/g, '').replace(/\.$/, '').trim().substring(0, 60);
-        if (!title || !state.chats[chatId]) return;
-
-        state.chats[chatId].title = title;
-        renderChatList();
-        if (state.currentChatId === chatId) DOM.currentChatTitle.textContent = title;
-        saveState(chatId);
-    } catch {
-        // silently fail — the placeholder truncation is still in place
-    }
-}
-
 // --- EDIT MESSAGE ---
 function editMessage(messageWrapper, originalText, originalAttachment) {
     const messageBubble = messageWrapper.querySelector('.message-user');
@@ -1966,7 +1707,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
     
     // Textarea
     const textarea = document.createElement('textarea');
-    textarea.className = 'w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 outline-none focus:border-white/40 resize-none';
+    textarea.className = 'w-full p-3 bg-white dark:bg-white/10 border border-slate-300 dark:border-white/20 rounded-lg text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/50 outline-none focus:border-brand-500 dark:focus:border-white/40 resize-none';
     textarea.value = originalText;
     textarea.rows = 3;
     textarea.style.minHeight = '80px';
@@ -1981,11 +1722,11 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
     let attachmentPreview = null;
     if (originalAttachment) {
         attachmentPreview = document.createElement('div');
-        attachmentPreview.className = 'flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg';
+        attachmentPreview.className = 'flex items-center gap-2 bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/20 px-3 py-2 rounded-lg';
         attachmentPreview.innerHTML = `
-            <i class="fas fa-image text-white/70 text-sm"></i>
-            <span class="text-xs text-white/80 truncate flex-1">${originalAttachment.name}</span>
-            <span class="text-xs text-white/50">(unchanged)</span>
+            <i class="fas fa-image text-slate-500 dark:text-white/70 text-sm"></i>
+            <span class="text-xs text-slate-700 dark:text-white/80 truncate flex-1">${originalAttachment.name}</span>
+            <span class="text-xs text-slate-400 dark:text-white/50">(unchanged)</span>
         `;
         editForm.appendChild(attachmentPreview);
     }
@@ -1997,14 +1738,14 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
     btnGroup.className = 'flex gap-2 justify-end';
     
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors';
+    cancelBtn.className = 'px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-medium transition-colors';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = () => {
         messageBubble.innerHTML = originalHTML;
     };
     
     const saveBtn = document.createElement('button');
-    saveBtn.className = 'px-4 py-2 bg-white hover:bg-white/90 text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2';
+    saveBtn.className = 'px-4 py-2 bg-brand-600 hover:bg-brand-700 dark:bg-white dark:hover:bg-white/90 text-white dark:text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2';
     saveBtn.innerHTML = '<i class="fas fa-check"></i> Save & Resend';
     saveBtn.onclick = async () => {
         const newText = textarea.value.trim();
@@ -2064,37 +1805,21 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
         const aiWrapper = appendMessageUI('ai', '', null, true);
         const aiBubble = aiWrapper.querySelector('.streaming-content');
         scrollToBottom();
-
-        _streamController = new AbortController();
-        enterStreamingUI();
+        
         try {
             const history = chat.messages.slice(-12);
             const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
                 renderStreamingContent(aiBubble, partial);
-                scheduleScrollToBottom(DOM.chatWindow);
-            }, _streamController.signal);
+                scrollToBottom();
+            });
             finaliseStreamingBubble(aiWrapper, responseText);
             chat.messages.push({ role: 'ai', text: responseText });
             chat.updatedAt = Date.now();
             saveState(state.currentChatId);
             renderChatList();
         } catch (err) {
-            if (err.name === 'AbortError') {
-                const partial = aiBubble.textContent.replace('▋', '').trim();
-                if (partial) {
-                    finaliseStreamingBubble(aiWrapper, partial);
-                    chat.messages.push({ role: 'ai', text: partial });
-                    chat.updatedAt = Date.now();
-                    saveState(state.currentChatId); renderChatList();
-                } else {
-                    aiWrapper.remove();
-                }
-            } else {
-                aiWrapper.querySelector('.message-ai').innerHTML = `
-                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
-            }
-        } finally {
-            exitStreamingUI();
+            aiWrapper.querySelector('.message-ai').innerHTML = `
+                <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
         }
     };
     
@@ -2145,21 +1870,19 @@ async function regenerateResponse(aiMessageWrapper) {
     
     // Replace the AI message with a streaming bubble
     aiMessageWrapper.innerHTML = '';
-    aiMessageWrapper.className = 'flex flex-col w-full animate-slide-in group';
+    aiMessageWrapper.className = 'flex w-full justify-start animate-slide-in gap-2 group';
     const streamBubble = document.createElement('div');
-    streamBubble.className = 'w-full message-ai overflow-hidden';
-    streamBubble.innerHTML = `<div class="streaming-content prose-msg"></div>`;
+    streamBubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+    streamBubble.innerHTML = `<div class="streaming-content prose-msg" style="padding:16px 20px"></div>`;
     aiMessageWrapper.appendChild(streamBubble);
     const aiBubble = streamBubble.querySelector('.streaming-content');
 
-    _streamController = new AbortController();
-    enterStreamingUI();
     try {
         const history = chat.messages.slice(0, actualIndex);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             renderStreamingContent(aiBubble, partial);
-            scheduleScrollToBottom(DOM.chatWindow);
-        }, _streamController.signal);
+            scrollToBottom();
+        });
 
         chat.messages[actualIndex].text = responseText;
         chat.updatedAt = Date.now();
@@ -2169,25 +1892,10 @@ async function regenerateResponse(aiMessageWrapper) {
         renderChatList();
 
     } catch (err) {
-        if (err.name === 'AbortError') {
-            const partial = aiBubble.textContent.replace('▋', '').trim();
-            if (partial) {
-                chat.messages[actualIndex].text = partial;
-                chat.updatedAt = Date.now();
-                saveState(state.currentChatId);
-                renderChat(state.currentChatId);
-                renderChatList();
-            } else {
-                aiMessageWrapper.innerHTML = '';
-            }
-        } else {
-            aiMessageWrapper.innerHTML = `
-                <div class="w-full message-ai">
-                    <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
-                </div>`;
-        }
-    } finally {
-        exitStreamingUI();
+        aiMessageWrapper.innerHTML = `
+            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+                <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
+            </div>`;
     }
 }
 
