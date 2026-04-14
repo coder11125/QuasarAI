@@ -1169,7 +1169,7 @@ function finaliseStreamingBubble(wrapper, text) {
     const bubble = wrapper.querySelector('.message-ai');
     if (!bubble) return;
     bubble.innerHTML = ''; // clear streaming content
-    bubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+    bubble.className = 'max-w-[90%] md:max-w-[80%] message-ai overflow-hidden';
 
     const segments = parseMessageSegments(text);
     let firstItem = true;
@@ -1224,7 +1224,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user rounded-br-sm overflow-hidden break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
@@ -1236,7 +1236,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
         textDiv.textContent = text;
         bubble.appendChild(textDiv);
     } else {
-        bubble.className = 'max-w-[85%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[80%] message-ai overflow-hidden break-words';
 
         if (streaming) {
             // Streaming mode — just a placeholder div that renderStreamingContent will fill
@@ -1700,7 +1700,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
     
     // Create edit form
     messageBubble.innerHTML = '';
-    messageBubble.className = 'max-w-[90%] md:max-w-[75%] p-4 rounded-2xl shadow-sm message-user rounded-br-sm';
+    messageBubble.className = 'max-w-[90%] md:max-w-[75%] p-4 rounded-2xl shadow-sm message-user';
     
     const editForm = document.createElement('div');
     editForm.className = 'space-y-3';
@@ -1872,7 +1872,7 @@ async function regenerateResponse(aiMessageWrapper) {
     aiMessageWrapper.innerHTML = '';
     aiMessageWrapper.className = 'flex w-full justify-start animate-slide-in gap-2 group';
     const streamBubble = document.createElement('div');
-    streamBubble.className = 'max-w-[90%] md:max-w-[80%] rounded-2xl shadow-sm message-ai rounded-bl-sm overflow-hidden';
+    streamBubble.className = 'max-w-[90%] md:max-w-[80%] message-ai overflow-hidden';
     streamBubble.innerHTML = `<div class="streaming-content prose-msg" style="padding:16px 20px"></div>`;
     aiMessageWrapper.appendChild(streamBubble);
     const aiBubble = streamBubble.querySelector('.streaming-content');
@@ -1893,7 +1893,7 @@ async function regenerateResponse(aiMessageWrapper) {
 
     } catch (err) {
         aiMessageWrapper.innerHTML = `
-            <div class="max-w-[80%] p-4 rounded-2xl shadow-sm message-ai rounded-bl-sm">
+            <div class="max-w-[80%] p-4 message-ai">
                 <div class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>
             </div>`;
     }
