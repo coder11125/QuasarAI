@@ -1224,7 +1224,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user overflow-hidden break-words';
+        bubble.className = 'w-fit max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user overflow-hidden break-words';
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
@@ -1700,7 +1700,7 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
     
     // Create edit form
     messageBubble.innerHTML = '';
-    messageBubble.className = 'max-w-[90%] md:max-w-[75%] p-4 rounded-2xl shadow-sm message-user';
+    messageBubble.className = 'w-fit max-w-[90%] md:max-w-[75%] p-4 rounded-2xl shadow-sm message-user';
     
     const editForm = document.createElement('div');
     editForm.className = 'space-y-3';
