@@ -1224,7 +1224,8 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
     const bubble = document.createElement('div');
 
     if (role === 'user') {
-        bubble.className = 'max-w-[85%] md:max-w-[75%] w-fit p-4 md:p-5 rounded-2xl shadow-sm message-user break-words';
+        bubble.className = 'max-w-[85%] md:max-w-[75%] p-4 md:p-5 rounded-2xl shadow-sm message-user break-words';
+        bubble.style.width = 'fit-content';
         if (attachment) {
             const imgDiv = document.createElement('div');
             imgDiv.className = 'mb-3 max-w-[250px] rounded-lg overflow-hidden border border-white/20';
@@ -1232,7 +1233,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
             bubble.appendChild(imgDiv);
         }
         const textDiv = document.createElement('div');
-        textDiv.className = 'whitespace-pre-wrap text-sm md:text-base leading-relaxed w-full';
+        textDiv.className = 'whitespace-pre-wrap text-sm md:text-base leading-relaxed';
         textDiv.style.overflowWrap = 'anywhere';
         textDiv.textContent = text;
         bubble.appendChild(textDiv);
