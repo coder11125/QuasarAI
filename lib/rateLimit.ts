@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { RateLimit } from './models/RateLimit.js';
 
-const MAX_ATTEMPTS = 10;        // max attempts per window
+const MAX_ATTEMPTS = 10;        // max attempts per window (auth endpoints)
 const WINDOW_MINUTES = 15;      // rolling window length
 
 /**
@@ -15,22 +15,26 @@ function getIp(req: VercelRequest): string {
 }
 
 /**
- * Checks and increments the rate limit for a given action + IP.
+ * Checks and increments the rate limit for a given action + identifier.
+ *
+ * - identifier: defaults to the client IP when omitted (auth endpoints).
+ *   Pass a userId for authenticated write endpoints so the limit is
+ *   per-user rather than per-IP.
+ * - maxAttempts: defaults to MAX_ATTEMPTS (10). Pass a higher value for
+ *   write endpoints that are called more frequently.
  *
  * Returns true if the request is allowed.
  * Returns false and sends a 429 response if the limit is exceeded.
- *
- * Usage:
- *   const allowed = await checkRateLimit('login', req, res);
- *   if (!allowed) return;
  */
 export async function checkRateLimit(
     action: string,
     req: VercelRequest,
-    res: VercelResponse
+    res: VercelResponse,
+    identifier?: string,
+    maxAttempts: number = MAX_ATTEMPTS
 ): Promise<boolean> {
-    const ip = getIp(req);
-    const key = `${action}:${ip}`;
+    const id = identifier ?? getIp(req);
+    const key = `${action}:${id}`;
     const now = new Date();
     const resetAt = new Date(now.getTime() + WINDOW_MINUTES * 60 * 1000);
 
@@ -43,11 +47,11 @@ export async function checkRateLimit(
         { upsert: true, new: true }
     );
 
-    if (doc.attempts > MAX_ATTEMPTS) {
+    if (doc.attempts > maxAttempts) {
         const retryAfterSecs = Math.ceil((doc.resetAt.getTime() - now.getTime()) / 1000);
         res.setHeader('Retry-After', String(retryAfterSecs));
         res.status(429).json({
-            error: `Too many attempts. Please try again in ${WINDOW_MINUTES} minutes.`,
+            error: `Too many requests. Please try again in ${WINDOW_MINUTES} minutes.`,
         });
         return false;
     }

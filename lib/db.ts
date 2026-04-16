@@ -12,7 +12,7 @@ declare global {
     var _mongoose: MongooseCache | undefined;
 }
 
-const cached: MongooseCache = global._mongoose ?? (global._mongoose = { conn: null, promise: null });
+const cached: MongooseCache = globalThis._mongoose ?? (globalThis._mongoose = { conn: null, promise: null });
 
 export async function connectDB(): Promise<typeof mongoose> {
     if (cached.conn) return cached.conn;
@@ -23,6 +23,11 @@ export async function connectDB(): Promise<typeof mongoose> {
         });
     }
 
-    cached.conn = await cached.promise;
+    try {
+        cached.conn = await cached.promise;
+    } catch (err) {
+        cached.promise = null; // allow retry on next request
+        throw err;
+    }
     return cached.conn;
 }
