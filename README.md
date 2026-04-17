@@ -42,7 +42,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Edit & Regenerate** — Edit any sent message and resend, or regenerate any AI response
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes the chat title
-- **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG/Markdown
+- **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG
 - **OCR** — Extract text from images using vision-capable models
 
 ### 📁 **Chat Folders**
@@ -135,12 +135,31 @@ Seamlessly switch between leading AI providers without leaving the app:
 ```
 /
 ├── index.html           # Frontend UI
-├── script.js            # Frontend logic (vanilla JS)
 ├── styles.css           # Styles (Tailwind + custom CSS)
 ├── vercel.json          # Vercel routing config
 ├── package.json         # Dependencies
-├── tsconfig.json        # TypeScript config
-├── CLAUDE.md            # Claude Code instructions
+├── Tsconfig.json        # TypeScript compiler config
+├── js/
+│   ├── constants.js     # LANG_ICONS, SYSTEM_PROMPT, provider defaults
+│   ├── state.js         # State object, DOM cache, saveState()
+│   ├── auth.js          # handleLogin(), handleRegister(), handleLogout(), checkAuthOnLoad()
+│   ├── server-sync.js   # syncToServer(), syncChat(), syncFolder(), loadFromServer()
+│   ├── init.js          # init() — bootstraps everything
+│   ├── artifact-panel.js # openArtifactPanel(), closeArtifactPanel(), switchPanelTab()
+│   ├── messages.js      # parseMessageSegments(), appendMessageUI()
+│   ├── chat-render.js   # renderChatList(), buildChatItem()
+│   ├── chats.js         # Chat CRUD, renderChat()
+│   ├── folders.js       # createFolder(), renameFolder(), deleteFolder(), moveChatToFolder()
+│   ├── settings.js      # renderProviderSettings(), saveAndFetch(), updateModelSelector()
+│   ├── ocr.js           # runOcr(), openOcrModal(), insertOcrText()
+│   ├── send.js          # Form submit handler, callAIProvider()
+│   ├── input.js         # Auto-expanding textarea, keyboard shortcuts
+│   ├── attachments.js   # File & voice input handling
+│   ├── edit-regenerate.js # editMessage(), regenerate logic
+│   ├── model-dropdown.js # setupModelDropdown()
+│   ├── search.js        # Sidebar chat search & filtering
+│   ├── theme-sidebar.js # setTheme(), sidebar collapse logic
+│   └── utils.js         # escapeHtml(), marked configuration, shared utilities
 ├── api/
 │   ├── auth/
 │   │   ├── register.ts  # POST /api/auth/register
@@ -165,7 +184,7 @@ Seamlessly switch between leading AI providers without leaving the app:
     ├── authMiddleware.ts # requireAuth() helper
     └── models/
         ├── User.ts       # User schema
-        ├── UserData.ts   # API keys + selectedModel schema
+        ├── userData.ts   # API keys + selectedModel schema
         ├── Chat.ts       # Per-chat schema (includes folderId)
         ├── Folder.ts     # Folder schema
         └── RateLimit.ts  # Rate limit tracking schema (TTL-indexed)

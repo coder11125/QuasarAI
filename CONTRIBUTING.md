@@ -25,12 +25,31 @@ Thanks for your interest in contributing! Quasar AI is a multi-provider AI chat 
 ```
 quasar-ai/
 ├── index.html            # App shell, all DOM structure
-├── script.js             # All frontend logic (state, API calls, UI)
 ├── styles.css            # Custom CSS (Tailwind handles utilities)
 ├── vercel.json           # Vercel routing config
 ├── package.json          # Dependencies
-├── tsconfig.json         # TypeScript compiler config
-├── CLAUDE.md             # Claude Code instructions
+├── Tsconfig.json         # TypeScript compiler config
+├── js/
+│   ├── constants.js      # LANG_ICONS, SYSTEM_PROMPT, FOLDER_COLORS, provider defaults
+│   ├── state.js          # State object, DOM cache, saveState()
+│   ├── auth.js           # handleLogin(), handleRegister(), handleLogout(), checkAuthOnLoad()
+│   ├── server-sync.js    # syncToServer(), syncChat(), syncFolder(), loadFromServer()
+│   ├── init.js           # init() — bootstraps everything
+│   ├── artifact-panel.js # openArtifactPanel(), closeArtifactPanel(), switchPanelTab()
+│   ├── messages.js       # parseMessageSegments(), appendMessageUI(), buildArtifactCard()
+│   ├── chat-render.js    # renderChatList(), buildChatItem()
+│   ├── chats.js          # Chat CRUD, renderChat()
+│   ├── folders.js        # createFolder(), renameFolder(), cycleFolderColor(), deleteFolder(), moveChatToFolder()
+│   ├── settings.js       # renderProviderSettings(), saveAndFetch(), updateModelSelector()
+│   ├── ocr.js            # runOcr(), openOcrModal(), insertOcrText()
+│   ├── send.js           # Form submit handler, callAIProvider()
+│   ├── input.js          # Auto-expanding textarea, keyboard shortcuts
+│   ├── attachments.js    # File & voice input handling
+│   ├── edit-regenerate.js # editMessage(), regenerate logic
+│   ├── model-dropdown.js # setupModelDropdown()
+│   ├── search.js         # Sidebar chat search & filtering
+│   ├── theme-sidebar.js  # setTheme(), sidebar collapse logic
+│   └── utils.js          # escapeHtml(), marked configuration, shared utilities
 ├── api/
 │   ├── auth/
 │   │   ├── register.ts   # POST /api/auth/register
@@ -55,7 +74,7 @@ quasar-ai/
     ├── rateLimit.ts       # checkRateLimit() for auth routes
     └── models/
         ├── User.ts        # User mongoose schema
-        ├── UserData.ts    # API keys + selectedModel schema
+        ├── userData.ts    # API keys + selectedModel schema
         ├── Chat.ts        # Per-chat schema (one document per chat, includes folderId)
         ├── Folder.ts      # Folder schema (name, color, userId)
         └── RateLimit.ts   # Rate limit tracking schema (TTL-indexed)
@@ -159,21 +178,24 @@ checkAuthOnLoad()
       └─ no → showAuthScreen()
 ```
 
-### Key Sections in `script.js`
+### Key Modules in `js/`
 
-| Section | Responsibility |
+| Module | Responsibility |
 |---|---|
-| State & Constants | `LANG_ICONS`, `PREVIEWABLE_LANGS`, `FOLDER_COLORS`, `SYSTEM_PROMPT`, initial state |
-| Auth | `handleLogin()`, `handleRegister()`, `handleLogout()`, `checkAuthOnLoad()` |
-| Server Sync | `syncToServer()`, `syncChat()`, `syncFolder()`, `deleteServerChat()`, `deleteServerFolder()`, `loadFromServer()` |
-| Init | `init()` — bootstraps everything, calls `checkAuthOnLoad()` |
-| Artifact Panel | `openArtifactPanel()`, `closeArtifactPanel()`, `switchPanelTab()` |
-| Message UI | `appendMessageUI()`, `parseMessageSegments()`, `buildArtifactCard()` |
-| Chat Management | CRUD for chats, `renderChat()`, `renderChatList()`, `buildChatItem()` |
-| Folder Management | `createFolder()`, `renameFolder()`, `cycleFolderColor()`, `deleteFolder()`, `moveChatToFolder()`, `showFolderPicker()` |
-| API Layer | `callAIProvider()` — normalized interface for all providers |
-| Settings | `renderProviderSettings()`, `saveAndFetch()`, `updateModelSelector()` |
-| OCR | `runOcr()`, `openOcrModal()`, `insertOcrText()` |
+| `js/constants.js` | `LANG_ICONS`, `PREVIEWABLE_LANGS`, `FOLDER_COLORS`, `SYSTEM_PROMPT`, provider defaults |
+| `js/state.js` | Initial `state` object, DOM cache, `saveState()` |
+| `js/auth.js` | `handleLogin()`, `handleRegister()`, `handleLogout()`, `checkAuthOnLoad()` |
+| `js/server-sync.js` | `syncToServer()`, `syncChat()`, `syncFolder()`, `deleteServerChat()`, `deleteServerFolder()`, `loadFromServer()` |
+| `js/init.js` | `init()` — bootstraps everything, calls `checkAuthOnLoad()` |
+| `js/artifact-panel.js` | `openArtifactPanel()`, `closeArtifactPanel()`, `switchPanelTab()` |
+| `js/messages.js` | `appendMessageUI()`, `parseMessageSegments()`, `buildArtifactCard()` |
+| `js/chat-render.js` | `renderChatList()`, `buildChatItem()` |
+| `js/chats.js` | CRUD for chats, `renderChat()` |
+| `js/folders.js` | `createFolder()`, `renameFolder()`, `cycleFolderColor()`, `deleteFolder()`, `moveChatToFolder()`, `showFolderPicker()` |
+| `js/send.js` | `callAIProvider()` — normalized interface for all providers |
+| `js/settings.js` | `renderProviderSettings()`, `saveAndFetch()`, `updateModelSelector()` |
+| `js/ocr.js` | `runOcr()`, `openOcrModal()`, `insertOcrText()` |
+| `js/utils.js` | `escapeHtml()`, marked configuration, shared utilities |
 
 ### Folder Collapse State
 
@@ -234,7 +256,7 @@ API keys are encrypted with AES-256-GCM before being written to MongoDB, using t
 ### Frontend
 
 - **No dependencies beyond CDN links.** Tailwind CSS, marked.js, and Font Awesome are loaded via CDN. Do not introduce a bundler without discussion.
-- **Keep `script.js` organized by section.** Each area has a `// --- SECTION NAME ---` comment header.
+- **Keep each `js/` module organized by section.** Each area has a `// --- SECTION NAME ---` comment header.
 - **Avoid touching the DOM directly from the API layer.** `callAIProvider()` returns a string — UI concerns live in the message/chat functions.
 - **Always call `saveState(chatId)` after mutating a chat**, and `saveState()` (no argument) for non-chat state changes (theme, model selection, folder creation, etc.). This ensures both localStorage and MongoDB stay in sync correctly.
 - **Always use `escapeHtml()` before injecting user-controlled strings into `innerHTML`.** This includes chat titles, folder names, file names, API key values, and error messages. Values from constants or the app's own code do not need escaping.
@@ -261,13 +283,13 @@ API keys are encrypted with AES-256-GCM before being written to MongoDB, using t
 
 ### System Prompt
 
-The `SYSTEM_PROMPT` constant in `script.js` is injected into **every** API call across all providers. If you modify it, verify with at least two different providers since each maps it differently (`system` for Anthropic, `systemInstruction` for Google, system-role message for OpenAI-compatible APIs).
+The `SYSTEM_PROMPT` constant in `js/constants.js` is injected into **every** API call across all providers. If you modify it, verify with at least two different providers since each maps it differently (`system` for Anthropic, `systemInstruction` for Google, system-role message for OpenAI-compatible APIs).
 
 ---
 
 ## Adding a New AI Provider
 
-1. **Add an entry to `DEFAULT_PROVIDERS`** in `script.js`:
+1. **Add an entry to `DEFAULT_PROVIDERS`** in `js/constants.js`:
 ```js
 yourprovider: {
     name: "Your Provider",
@@ -276,7 +298,7 @@ yourprovider: {
 }
 ```
 
-2. **Add the key slot to initial `state`**:
+2. **Add the key slot to initial `state`** in `js/state.js`:
 ```js
 let state = {
     keys: { ..., yourprovider: '' },
@@ -284,7 +306,7 @@ let state = {
 };
 ```
 
-3. **Add the key slot to `UserData.ts`** model so it persists to MongoDB:
+3. **Add the key slot to `lib/models/userData.ts`** so it persists to MongoDB:
 ```ts
 keys: {
     ...,
@@ -292,9 +314,9 @@ keys: {
 }
 ```
 
-4. **Handle model fetching in `saveAndFetch()`** if the models endpoint has a non-standard response shape.
+4. **Handle model fetching in `saveAndFetch()`** (`js/settings.js`) if the models endpoint has a non-standard response shape.
 
-5. **Add a branch in `callAIProvider()`**:
+5. **Add a branch in `callAIProvider()`** (`js/send.js`):
 ```js
 } else if (provider === 'yourprovider') {
     url = 'https://api.yourprovider.com/v1/chat/completions';
@@ -359,7 +381,7 @@ state.chats['xyz789'] = {
 
 ### Adding folder colors
 
-Colors are defined in `FOLDER_COLORS` in `script.js` as hex values (not Tailwind classes) to avoid Tailwind CDN generation issues. To add a new color:
+Colors are defined in `FOLDER_COLORS` in `js/constants.js` as hex values (not Tailwind classes) to avoid Tailwind CDN generation issues. To add a new color:
 
 ```js
 const FOLDER_COLORS = {
