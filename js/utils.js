@@ -5,9 +5,22 @@ marked.use({
     renderer: (() => {
         const r = new marked.Renderer();
 
-        // Open all links in a new tab safely
-        r.link = (href, title, text) =>
-            `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
+        // Open all links in a new tab safely.
+        // Only allow http(s), mailto, and tel protocols — everything else (javascript:, data:, vbscript:, etc.)
+        // is neutralised to prevent XSS via AI-generated or edited markdown.
+        r.link = (href, title, text) => {
+            let safeHref = '#';
+            try {
+                const raw = String(href ?? '').trim();
+                // Reject protocol-relative and non-whitelisted schemes. Relative URLs and anchors are allowed.
+                if (/^(https?:|mailto:|tel:)/i.test(raw) || /^[/?#]/.test(raw) || !/:/.test(raw.split(/[?#]/)[0])) {
+                    safeHref = raw;
+                }
+            } catch { /* fall through to '#' */ }
+            const hrefAttr = escapeHtml(safeHref);
+            const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+            return `<a href="${hrefAttr}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+        };
 
         // Paragraphs: strip any trailing <br> tags to prevent phantom bottom space
         r.paragraph = (text) =>
