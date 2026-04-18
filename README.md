@@ -246,7 +246,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## License
 
-MIT License 2026 Quasar AI — Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+GNU-GPL v3 License 2026 Quasar AI — Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
 
 ---
 
