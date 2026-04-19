@@ -116,10 +116,6 @@ function finaliseStreamingBubble(wrapper, text) {
 // --- MESSAGE UI ---
 // streaming=true creates an empty bubble with a streaming-content div inside
 function appendMessageUI(role, text, attachment = null, streaming = false) {
-    if (DOM.chatWindow.querySelector('.fa-meteor.animate-pulse')) {
-        DOM.chatWindow.innerHTML = '';
-    }
-
     const wrapper = document.createElement('div');
     wrapper.className = `flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-in gap-2 group`;
 

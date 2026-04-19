@@ -19,8 +19,9 @@ DOM.chatForm.onsubmit = async (e) => {
         renderChatList();
     }
 
-    // Clear welcome screen if still showing
-    if (DOM.chatWindow.querySelector('.fa-meteor')) DOM.chatWindow.innerHTML = '';
+    // Move input bar to bottom when the first message is sent
+    DOM.chatFooter.classList.remove('input-centered');
+    DOM.welcomeHeadline.classList.add('hidden');
 
     appendMessageUI('user', text, currentAttachment);
     DOM.userInput.value = ''; DOM.userInput.style.height = 'auto';

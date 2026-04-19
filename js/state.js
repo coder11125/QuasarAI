@@ -36,6 +36,8 @@ const DOM = {
     emptySearchState: document.getElementById('emptySearchState'),
     chatSearchInput: document.getElementById('chatSearchInput'),
     chatWindow: document.getElementById('chatWindow'),
+    chatFooter: document.getElementById('chatFooter'),
+    welcomeHeadline: document.getElementById('welcomeHeadline'),
     currentChatTitle: document.getElementById('currentChatTitle'),
     chatForm: document.getElementById('chatForm'),
     userInput: document.getElementById('userInput'),

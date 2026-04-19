@@ -130,16 +130,11 @@ function renderChat(id) {
     DOM.currentChatTitle.textContent = chat.title;
     DOM.chatWindow.innerHTML = '';
     if (chat.messages.length === 0) {
-        DOM.chatWindow.innerHTML = `
-            <div class="h-full flex flex-col items-center justify-center text-center opacity-60">
-                <div class="w-16 h-16 rounded-2xl bg-brand-500 mx-auto flex items-center justify-center text-white shadow-xl mb-6 text-3xl animate-pulse">
-                    <i class="fas fa-meteor"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-slate-800 dark:text-white">How can I help you today?</h2>
-                <p class="mt-2 text-sm max-w-sm text-slate-500">Configure your API key in settings and select a model to start.</p>
-            </div>
-        `;
+        DOM.chatFooter.classList.add('input-centered');
+        DOM.welcomeHeadline.classList.remove('hidden');
     } else {
+        DOM.chatFooter.classList.remove('input-centered');
+        DOM.welcomeHeadline.classList.add('hidden');
         chat.messages.forEach(msg => appendMessageUI(msg.role, msg.text, msg.attachment));
     }
     scrollToBottom();
