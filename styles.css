@@ -56,9 +56,27 @@ body {
    ============================================ */
 .sidebar-container { transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1); }
 .sidebar-collapsed { margin-left: -16rem; }
+
+/* On mobile the sidebar must be fixed (not absolute) so it reliably
+   covers the full viewport height on iOS Safari, where position:absolute
+   inside a flex body can mis-calculate the containing block. We use
+   transform-based slide instead of margin-left for GPU compositing. */
 @media (max-width: 768px) {
-    .sidebar-container { position: absolute; z-index: 50; height: 100%; margin-left: -16rem; }
-    .sidebar-open-mobile { margin-left: 0; }
+    .sidebar-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 50;
+        height: 100vh;
+        height: 100dvh; /* respects iOS browser chrome */
+        margin-left: 0 !important;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+        will-change: transform;
+    }
+    .sidebar-open-mobile {
+        transform: translateX(0);
+    }
 }
 
 /* ============================================
@@ -660,15 +678,26 @@ textarea::-webkit-scrollbar { width: 4px; }
     right: 0;
     pointer-events: none;
     background: transparent;
-    transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    /* No top/transform transition — the snap happens behind an appearing
+       message bubble so the user never notices the position change. */
 }
 
+/* When the chat is empty, expand the footer to fill the column and use
+   flexbox to vertically center the input block. This avoids the
+   transform:translateY(-50%) + position:absolute combination that causes
+   iOS Safari to break the left/right width constraints and scroll the
+   page horizontally. */
 #chatFooter.input-centered {
-    bottom: auto;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Cancel the iOS safe-area bottom padding so it doesn't offset
+       the flex centre point; safe-area padding re-applies once the
+       footer returns to bottom: 0. */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
 #chatFooter > div,
@@ -677,6 +706,12 @@ textarea::-webkit-scrollbar { width: 4px; }
 #chatFooter #attachmentPreview button,
 #chatFooter #chatForm * {
     pointer-events: auto;
+}
+
+/* Prevent any child (shadows, rings, dropdowns) from widening the column
+   past the viewport and triggering iOS horizontal scroll / scale-out. */
+#chatColumn {
+    overflow-x: hidden;
 }
 
 /* Fade-out mask at the bottom of the chat window so messages
