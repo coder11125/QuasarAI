@@ -1,6 +1,7 @@
 # ☄️ Quasar AI
 
-<img width="1440" height="790" alt="Screenshot 2026-04-01 at 3 44 45 PM" src="https://github.com/user-attachments/assets/92c02ddc-d147-4d04-866d-828509890508" />
+<img width="1440" height="822" alt="Screenshot 2026-04-19 at 2 11 28 PM" src="https://github.com/user-attachments/assets/b4162663-b85a-4492-afd0-3f5fe4ca31e4" />
+
 
 
 A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, or OpenRouter — all from one beautiful interface with cross-device sync, persistent accounts, and a secure Node.js backend.
