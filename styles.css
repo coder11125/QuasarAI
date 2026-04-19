@@ -3,6 +3,14 @@
    ============================================ */
 * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
+/* Prevent iOS Safari from measuring overflowing children and scaling the
+   viewport out. overflow-x: hidden on body alone is unreliable on WebKit;
+   setting it on html is the reliable anchor point. */
+html {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 body {
     background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%);
     transition: background 0.3s ease, color 0.3s ease;
@@ -76,6 +84,13 @@ body {
     }
     .sidebar-open-mobile {
         transform: translateX(0);
+    }
+
+    /* Scale the chat column to 90 % so its content (form, disclaimer,
+       message bubbles) never reaches the right edge of the iOS viewport.
+       Adjust this value if you want more or less breathing room. */
+    #chatColumn {
+        zoom: 0.9;
     }
 }
 
