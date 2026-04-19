@@ -5,61 +5,63 @@
 | Browser | Status | Notes |
 |---------|--------|-------|
 | **Chrome/Chromium** | ✅ Full Support | Best performance |
-| **Firefox** | ✅ Full Support | Requires extension in some versions |
-| **Safari** | ✅ Full Support | Works on macOS & iOS 14.5+ |
-| **Edge** | ✅ Full Support | Based on Chromium |
+| **Chrome (Android)** | ✅ Full Support | Uses `webkitSpeechRecognition` |
+| **Edge** | ✅ Full Support | Chromium-based |
 | **Opera** | ✅ Full Support | Chromium-based |
-| **Internet Explorer** | ❌ Not Supported | Use modern browser |
+| **Safari** | ✅ Full Support | macOS & iOS 14.5+ |
 | **Mobile Safari (iOS)** | ⚠️ Limited | iOS 14.5+ only |
+| **Firefox** | ❌ Not Supported | Web Speech API removed in recent versions |
+| **Internet Explorer** | ❌ Not Supported | Use a modern browser |
+
+> The voice button is **automatically hidden** when the browser does not expose `SpeechRecognition` or `webkitSpeechRecognition`.
 
 ## Requirements
 
-1. **HTTPS Connection** — Required for microphone access (local `http://localhost` works)
+1. **HTTPS Connection** — Required for microphone access (`http://localhost` also works for local dev)
 2. **Microphone Permission** — Browser will prompt for permission on first use
-3. **Stable Internet** — Some browsers require cloud-based processing
-4. **Modern Browser** — Released in last 2 years
+3. **Stable Internet** — Some browsers (Chrome) send audio to cloud services for transcription
+4. **Modern Browser** — See support table above
 
 ## How It Works
 
-1. Click the **🎤 microphone icon** in the chat input
+1. Tap/click the **🎤 microphone button** in the chat input bar
 2. Browser requests microphone access (first time only)
-3. Speak clearly into your microphone
-4. Speech is transcribed in real-time (interim results)
-5. Final transcript is added to the input box
-6. Click again to stop, or it auto-stops after 5-10 seconds of silence
+3. The button turns **red and pulses**, and a "🎤 Listening…" toast appears
+4. Speak clearly — interim results are streamed into the input box in real-time
+5. Recognition stops automatically when you finish speaking (`continuous = false`)
+6. Tap/click the button again at any time to stop early
+7. The final transcript is appended to whatever text is already in the input box
 
 ## Troubleshooting
 
 ### "Microphone permission denied"
-- **Chrome/Edge**: Settings → Privacy → Site settings → Microphone → Allow
-- **Firefox**: Click 🔒 lock icon → Edit → Allow microphone
-- **Safari**: System Preferences → Security & Privacy → Microphone → Check Quasar AI
+- **Chrome/Edge**: Settings → Privacy & security → Site settings → Microphone → Allow for this site
+- **Safari (macOS)**: System Settings → Privacy & Security → Microphone → enable your browser
+- **Safari (iOS)**: Settings → [Browser] → Microphone → Allow
+- **Android (Chrome)**: tap the lock icon in the address bar → Microphone → Allow
 
 ### "No speech detected"
-- Check microphone volume
-- Speak clearly and at normal pace
-- Avoid background noise
+- Check your microphone volume in system settings
+- Speak clearly at a normal pace
+- Reduce background noise
 - Try again after a short pause
 
 ### "Network error"
-- Check internet connection
-- Some providers require cloud connection (Google, Firefox)
+- Check your internet connection (Chrome requires cloud access for transcription)
 - Try a different browser
 
-### Voice button not appearing
-- Your browser doesn't support Web Speech API
-- Try Chrome, Firefox, Safari, or Edge
-- Update to the latest browser version
+### Voice button not visible
+- Your browser doesn't support the Web Speech API — the button is hidden automatically
+- Switch to Chrome, Edge, or Safari
 
 ### Transcription quality is poor
-- Speak more clearly
-- Use a better microphone
+- Speak more clearly and at a moderate pace
+- Use a better quality microphone
 - Reduce background noise
-- Try English (en-US) language setting
 
 ## Language Support
 
-Currently defaults to **English (en-US)**. To add more languages, modify `script.js`:
+Defaults to **English (en-US)**. To change the language, edit the `recognition.lang` line in `js/attachments.js`:
 
 ```javascript
 recognition.lang = 'es-ES'; // Spanish
@@ -71,29 +73,26 @@ recognition.lang = 'zh-CN'; // Chinese (Simplified)
 
 ## Privacy & Security
 
-- Speech is processed locally in your browser (when supported)
-- Some browsers may send audio to cloud services for processing
-- Check your browser's privacy settings
-- Quasar AI doesn't store or log voice data
+- Chrome sends audio to Google's cloud for transcription; this is handled entirely by the browser
+- Safari can process speech on-device on supported hardware
+- Quasar AI does not store, log, or transmit voice recordings
+- Check your browser's own privacy policy for details on how it processes audio
 
 ## Tips for Best Results
 
 ✅ Use a quiet environment  
 ✅ Speak at a natural pace  
-✅ Use clear pronunciation  
-✅ Keep microphone at 6-12 inches away  
-✅ Use a decent quality microphone  
-✅ Check microphone isn't muted  
-✅ Ensure HTTPS connection  
+✅ Keep the microphone 6–12 inches from your mouth  
+✅ Ensure an HTTPS connection  
+✅ Check the microphone is not muted in system settings  
 
 ## Still Having Issues?
 
-1. Open browser DevTools (F12)
-2. Check the Console tab for errors
-3. Look for "Speech recognition error" messages
-4. Try a different browser
-5. File an issue on GitHub with:
-   - Browser & version
-   - Error message from console
-   - Microphone type
-   - Your environment (quiet/noisy, HTTPS/localhost)
+1. Open browser DevTools (F12 / Cmd+Option+I)
+2. Check the **Console** tab for errors beginning with `Speech recognition error`
+3. Try a different browser
+4. File an issue on GitHub with:
+   - Browser name & version
+   - Error message from the console
+   - Microphone type (built-in / external / headset)
+   - Environment (quiet/noisy, HTTPS/localhost)

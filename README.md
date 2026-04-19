@@ -28,7 +28,7 @@ A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, Ope
 Seamlessly switch between leading AI providers without leaving the app:
 - **Google Gemini** — Gemini 2.5 Pro, Flash, and more
 - **OpenAI** — GPT-4o, GPT-4 Turbo, GPT-3.5-Turbo
-- **Anthropic Claude** — Claude Sonnet, Haiku, Opus
+- **Anthropic Claude** — Claude 3.7 Sonnet, Claude 3.5 Sonnet, Haiku, Opus
 - **Groq** — Fastest inference for Llama, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
 
@@ -237,6 +237,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ---
 
+## 📖 Additional Documentation
+
+- [Voice Setup & Troubleshooting](VoiceSetup.md) — browser support, permissions, troubleshooting tips
+- [Mobile Controls & Gestures](mobilecontrols.md) — touch controls, responsive layout, mobile tips
+- [Contributing Guidelines](CONTRIBUTING.md) — how to contribute
+
+---
+
 ## 📋 Browser Requirements
 - Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 - Web Speech API for voice input (optional, gracefully disabled if unavailable)
@@ -246,7 +254,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## License
 
-GNU-GPL v3 License 2026 Quasar AI — Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+GPL-3.0 License 2026 Quasar AI — Free to use, modify, and distribute under the terms of the GNU General Public License v3. See [LICENSE](LICENSE) for details.
 
 ---
 

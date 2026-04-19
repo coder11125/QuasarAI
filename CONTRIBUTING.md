@@ -29,6 +29,9 @@ quasar-ai/
 ├── vercel.json           # Vercel routing config
 ├── package.json          # Dependencies
 ├── Tsconfig.json         # TypeScript compiler config
+├── CONTRIBUTING.md       # This file
+├── VoiceSetup.md         # Web Speech API setup & browser compatibility
+├── mobilecontrols.md     # Mobile touch controls & gesture reference
 ├── js/
 │   ├── constants.js      # LANG_ICONS, SYSTEM_PROMPT, FOLDER_COLORS, provider defaults
 │   ├── state.js          # State object, DOM cache, saveState()
@@ -195,6 +198,12 @@ checkAuthOnLoad()
 | `js/send.js` | `callAIProvider()` — normalized interface for all providers |
 | `js/settings.js` | `renderProviderSettings()`, `saveAndFetch()`, `updateModelSelector()` |
 | `js/ocr.js` | `runOcr()`, `openOcrModal()`, `insertOcrText()` |
+| `js/input.js` | Auto-expanding textarea, keyboard shortcuts (Enter to send, Shift+Enter for newline) |
+| `js/attachments.js` | File upload and voice input handling |
+| `js/edit-regenerate.js` | `editMessage()`, regenerate-last-response logic |
+| `js/model-dropdown.js` | `setupModelDropdown()` — searchable model selector |
+| `js/search.js` | Sidebar chat search & real-time filtering |
+| `js/theme-sidebar.js` | `setTheme()`, desktop sidebar collapse, mobile sidebar overlay |
 | `js/utils.js` | `escapeHtml()`, marked configuration, shared utilities |
 
 ### Folder Collapse State
