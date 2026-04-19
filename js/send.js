@@ -10,10 +10,11 @@ DOM.chatForm.onsubmit = async (e) => {
     if (!apiKey) { showToast(`API Key missing for ${provider}. Please configure in Settings.`); openSettings('api'); return; }
 
     const userMsg = { role: 'user', text, attachment: currentAttachment };
+    const isFirstMessage = state.chats[state.currentChatId].title === 'New Chat' && text;
     state.chats[state.currentChatId].messages.push(userMsg);
     state.chats[state.currentChatId].updatedAt = Date.now();
 
-    if (state.chats[state.currentChatId].title === 'New Chat' && text) {
+    if (isFirstMessage) {
         state.chats[state.currentChatId].title = text.substring(0, 30) + (text.length > 30 ? '...' : '');
         renderChatList();
     }
@@ -42,6 +43,7 @@ DOM.chatForm.onsubmit = async (e) => {
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
+        if (isFirstMessage) generateChatTitle(state.currentChatId, provider, modelId, apiKey, text, responseText);
     } catch (err) {
         aiWrapper.querySelector('.message-ai').innerHTML = `
             <div class="p-4 text-red-500 text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Error: ${escapeHtml(err.message)}</div>`;
