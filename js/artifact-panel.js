@@ -66,6 +66,16 @@ function switchPanelTab(tab, btn) {
         DOM.artifactPanelCodePane.classList.add('hidden');
         DOM.artifactPanelPreviewPane.classList.remove('hidden');
         if (!DOM.artifactPanelIframe.dataset.loaded) {
+            if (!confirm('This preview will execute AI-generated code in a sandboxed frame.\n\nOnly proceed if you trust the content.\n\nContinue?')) {
+                // Revert to code tab
+                DOM.artifactPanelTabs.querySelectorAll('.artifact-tab').forEach((t, i) => {
+                    t.classList.toggle('active', i === 0);
+                });
+                artifactPanel.activeTab = 'code';
+                DOM.artifactPanelCodePane.classList.remove('hidden');
+                DOM.artifactPanelPreviewPane.classList.add('hidden');
+                return;
+            }
             let html = artifactPanel.code;
             if (artifactPanel.lang === 'svg') {
                 html = `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">${artifactPanel.code}</body></html>`;

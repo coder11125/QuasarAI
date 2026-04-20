@@ -81,7 +81,7 @@ function finaliseStreamingBubble(wrapper, text) {
             const textDiv = document.createElement('div');
             textDiv.className = 'prose-msg';
             textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
-            try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
+            try { textDiv.innerHTML = DOMPurify.sanitize(marked.parse(seg.content.trimEnd())); }
             catch (e) { textDiv.textContent = seg.content; }
             textDiv.querySelectorAll('p').forEach(p => {
                 p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
@@ -155,7 +155,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
                     const textDiv = document.createElement('div');
                     textDiv.className = 'prose-msg';
                     textDiv.style.cssText = `padding: ${firstItem ? '16px' : '4px'} 20px ${isLast ? '16px' : '4px'} 20px;`;
-                    try { textDiv.innerHTML = marked.parse(seg.content.trimEnd()); }
+                    try { textDiv.innerHTML = DOMPurify.sanitize(marked.parse(seg.content.trimEnd())); }
                     catch (e) { textDiv.textContent = seg.content; }
                     textDiv.querySelectorAll('p').forEach(p => {
                         p.innerHTML = p.innerHTML.replace(/(<br\s*\/?>\s*)+$/, '');
