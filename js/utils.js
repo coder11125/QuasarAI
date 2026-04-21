@@ -1,18 +1,16 @@
 // --- MARKED CONFIGURATION ---
+// marked v14 renderer methods receive a token object instead of individual args
 marked.use({
     gfm: true,        // GitHub Flavoured Markdown: tables, strikethrough, task lists
     breaks: false,    // Disable: single newlines were becoming <br> inside <p>, adding phantom height
-    renderer: (() => {
-        const r = new marked.Renderer();
-
+    renderer: {
         // Open all links in a new tab safely.
         // Only allow http(s), mailto, and tel protocols — everything else (javascript:, data:, vbscript:, etc.)
         // is neutralised to prevent XSS via AI-generated or edited markdown.
-        r.link = (href, title, text) => {
+        link({ href, title, text }) {
             let safeHref = '#';
             try {
                 const raw = String(href ?? '').trim();
-                // Reject protocol-relative and non-whitelisted schemes. Relative URLs and anchors are allowed.
                 if (/^(https?:|mailto:|tel:)/i.test(raw) || /^[/?#]/.test(raw) || !/:/.test(raw.split(/[?#]/)[0])) {
                     safeHref = raw;
                 }
@@ -20,24 +18,26 @@ marked.use({
             const hrefAttr = escapeHtml(safeHref);
             const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
             return `<a href="${hrefAttr}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
-        };
+        },
 
         // Paragraphs: strip any trailing <br> tags to prevent phantom bottom space
-        r.paragraph = (text) =>
-            `<p>${text.replace(/(<br\s*\/?>\s*)+$/, '')}</p>`;
+        paragraph({ text }) {
+            return `<p>${text.replace(/(<br\s*\/?>\s*)+$/, '')}</p>`;
+        },
 
         // Inline code — styled token, not a full artifact card
-        r.codespan = (code) =>
-            `<code class="inline-code">${code}</code>`;
+        codespan({ text }) {
+            return `<code class="inline-code">${escapeHtml(text)}</code>`;
+        },
 
         // Fenced code blocks inside prose get a styled pre/code
         // (These should have been stripped by parseMessageSegments already,
         //  but this handles any that slip through in pure-text segments)
-        r.code = (code, lang) => {
+        code({ text, lang }) {
             const safeLang = (lang || 'plaintext').toLowerCase();
             const icon = LANG_ICONS[safeLang] || 'fas fa-code';
             const label = safeLang === 'plaintext' ? 'Code' : safeLang.toUpperCase();
-            const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             return `
                 <div class="prose-code-block">
                     <div class="prose-code-header">
@@ -48,18 +48,24 @@ marked.use({
                     </div>
                     <pre class="prose-code-pre"><code>${escaped}</code></pre>
                 </div>`;
-        };
+        },
 
-        // Tables — add classes for styling
-        r.table = (header, body) =>
-            `<div class="prose-table-wrap"><table class="prose-table"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+        // Tables — v14 passes token.header and token.rows as arrays; use this.parser for inline rendering
+        table({ header, rows }) {
+            const headerHtml = header.map(cell =>
+                `<th>${this.parser.parseInline(cell.tokens)}</th>`
+            ).join('');
+            const bodyHtml = rows.map(row =>
+                `<tr>${row.map(cell => `<td>${this.parser.parseInline(cell.tokens)}</td>`).join('')}</tr>`
+            ).join('\n');
+            return `<div class="prose-table-wrap"><table class="prose-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+        },
 
         // Blockquotes
-        r.blockquote = (quote) =>
-            `<blockquote class="prose-blockquote">${quote}</blockquote>`;
-
-        return r;
-    })()
+        blockquote({ body }) {
+            return `<blockquote class="prose-blockquote">${body}</blockquote>`;
+        },
+    }
 });
 
 // Escapes user-controlled strings before injecting into innerHTML
