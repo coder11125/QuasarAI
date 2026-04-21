@@ -141,7 +141,10 @@ Seamlessly switch between leading AI providers without leaving the app:
 ├── styles.css           # Styles (Tailwind + custom CSS)
 ├── vercel.json          # Vercel routing config
 ├── package.json         # Dependencies
+├── package-lock.json    # node_modules copy of dependencies
 ├── Tsconfig.json        # TypeScript compiler config
+├── .gitattributes       # Linguist config on detecting
+├── CLAUDE.md            # Claude Code config
 ├── js/
 │   ├── constants.js     # LANG_ICONS, SYSTEM_PROMPT, provider defaults
 │   ├── state.js         # State object, DOM cache, saveState()
