@@ -142,7 +142,7 @@ async function loadFromServer() {
         const foldersData = foldersRes?.ok ? await foldersRes.json() : {};
 
         // Server always wins — replace, don't merge
-        if (data.keys)           state.keys          = { google: '', openai: '', anthropic: '', groq: '', openrouter: '', ...data.keys };
+        if (data.keys)           state.keys          = { google: '', openai: '', anthropic: '', groq: '', openrouter: '', mistral: '', ...data.keys };
         if (data.selectedModel)  state.selectedModel = data.selectedModel;
         if (chatsData.chats)     state.chats         = Object.keys(chatsData.chats).length > 0 ? chatsData.chats : state.chats;
         if (foldersData.folders) state.folders       = foldersData.folders;

@@ -4,7 +4,7 @@
 
 
 
-A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, or OpenRouter — all from one beautiful interface with cross-device sync, persistent accounts, and a secure Node.js backend.
+A sleek, modern, multi-provider AI chat interface. Connect to Google Gemini, OpenAI, Anthropic Claude, Groq, OpenRouter, or Mistral — all from one beautiful interface with cross-device sync, persistent accounts, and a secure Node.js backend.
 
 ![License](https://img.shields.io/badge/license-GPL--3.0-green) ![Backend](https://img.shields.io/badge/backend-Node.js-green) ![DB](https://img.shields.io/badge/database-MongoDB-brightgreen) ![Lang](https://img.shields.io/badge/backend%20lang-TypeScript-blue) [![Deploy with Vercel](https://img.shields.io/badge/deploy-Vercel-black?logo=vercel)](https://vercel.com/new/clone?repository-url=https://github.com/coder11125/QuasarAI)
 
@@ -32,6 +32,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Anthropic Claude** — Claude 3.7 Sonnet, Claude 3.5 Sonnet, Haiku, Opus
 - **Groq** — Fastest inference for Llama, Mixtral, and more
 - **OpenRouter** — Access to 200+ models from a single API
+- **Mistral** — Mistral Large, Small, Codestral, and Pixtral vision models
 
 ### 💬 **Rich Chat Experience**
 - **Full Markdown Rendering** — Code blocks with syntax highlighting, tables, lists, bold/italic, links
@@ -82,6 +83,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 | Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Pay-as-you-go |
 | Groq | [console.groq.com](https://console.groq.com/keys) | Free tier, fastest inference |
 | OpenRouter | [openrouter.ai](https://openrouter.ai/keys) | 200+ models |
+| Mistral | [console.mistral.ai](https://console.mistral.ai/api-keys) | Free tier available |
 
 ---
 

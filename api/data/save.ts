@@ -4,7 +4,7 @@ import { requireAuth } from '../../lib/authMiddleware.js';
 import { UserData } from '../../lib/models/userData.js';
 import { encryptKeys } from '../../lib/crypto.js';
 
-const ALLOWED_KEYS = ['google', 'openai', 'anthropic', 'groq', 'openrouter'];
+const ALLOWED_KEYS = ['google', 'openai', 'anthropic', 'groq', 'openrouter', 'mistral'];
 const MAX_KEY_LENGTH = 512; // API keys are never longer than this
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {

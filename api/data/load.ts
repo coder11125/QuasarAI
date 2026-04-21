@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
         if (!userData) {
             res.status(200).json({
-                keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
+                keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '', mistral: '' },
                 selectedModel: '',
             });
             return;

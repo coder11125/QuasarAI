@@ -1,7 +1,7 @@
 // --- STATE & DOM CACHE ---
 let state = {
-    keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '' },
-    models: { google: [], openai: [], anthropic: [], groq: [], openrouter: [] },
+    keys: { google: '', openai: '', anthropic: '', groq: '', openrouter: '', mistral: '' },
+    models: { google: [], openai: [], anthropic: [], groq: [], openrouter: [], mistral: [] },
     chats: {},
     folders: {},   // keyed by folderId → { id, name, color }
     currentChatId: null,

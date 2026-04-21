@@ -126,8 +126,8 @@ function handleLogout() {
     clearAuthSession();
     // Clear local state so next login loads fresh from server
     localStorage.removeItem('quasar_state');
-    state.keys = { google: '', openai: '', anthropic: '', groq: '', openrouter: '' };
-    state.models = { google: [], openai: [], anthropic: [], groq: [], openrouter: [] };
+    state.keys = { google: '', openai: '', anthropic: '', groq: '', openrouter: '', mistral: '' };
+    state.models = { google: [], openai: [], anthropic: [], groq: [], openrouter: [], mistral: [] };
     state.chats = {};
     state.folders = {};
     state.currentChatId = null;

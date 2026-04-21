@@ -6,6 +6,7 @@ export interface IUserKeys {
     anthropic:  string;
     groq:       string;
     openrouter: string;
+    mistral:    string;
 }
 
 export interface IUserData extends Document {
@@ -23,6 +24,7 @@ const UserDataSchema = new Schema<IUserData>({
         anthropic:  { type: String, default: '' },
         groq:       { type: String, default: '' },
         openrouter: { type: String, default: '' },
+        mistral:    { type: String, default: '' },
     },
     selectedModel: { type: String, default: '' },
     updatedAt:     { type: Date, default: Date.now },

@@ -86,6 +86,7 @@ async function generateChatTitle(chatId, provider, modelId, apiKey, userText, ai
             if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
             else if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
             else if (provider === 'openrouter') url = 'https://openrouter.ai/api/v1/chat/completions';
+            else if (provider === 'mistral') url = 'https://api.mistral.ai/v1/chat/completions';
             else return;
             const extraHeaders = {};
             if (provider === 'openrouter') { extraHeaders['HTTP-Referer'] = window.location.href; extraHeaders['X-Title'] = 'Quasar AI'; }

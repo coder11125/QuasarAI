@@ -11,7 +11,8 @@ const DEFAULT_PROVIDERS = {
     openai: { name: "OpenAI", url: "https://api.openai.com/v1/models", link: "https://platform.openai.com/api-keys" },
     anthropic: { name: "Anthropic", url: "hardcoded", link: "https://console.anthropic.com/settings/keys" },
     groq: { name: "Groq", url: "https://api.groq.com/openai/v1/models", link: "https://console.groq.com/keys" },
-    openrouter: { name: "OpenRouter", url: "https://openrouter.ai/api/v1/models", link: "https://openrouter.ai/keys" }
+    openrouter: { name: "OpenRouter", url: "https://openrouter.ai/api/v1/models", link: "https://openrouter.ai/keys" },
+    mistral: { name: "Mistral", url: "https://api.mistral.ai/v1/models", link: "https://console.mistral.ai/api-keys" }
 };
 
 const LANG_ICONS = {

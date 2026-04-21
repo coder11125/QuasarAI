@@ -155,11 +155,12 @@ async function runOcr(file) {
                 extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
             } else {
-                // OpenAI-compatible (openai, groq, openrouter)
+                // OpenAI-compatible (openai, groq, openrouter, mistral)
                 let url = '';
                 if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
                 else if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
                 else if (provider === 'openrouter') url = 'https://openrouter.ai/api/v1/chat/completions';
+                else if (provider === 'mistral') url = 'https://api.mistral.ai/v1/chat/completions';
                 const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
                 if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'Quasar AI'; }
                 const res = await fetch(url, {

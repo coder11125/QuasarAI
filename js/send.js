@@ -104,6 +104,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
         if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
         else if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
         else if (provider === 'openrouter') url = 'https://openrouter.ai/api/v1/chat/completions';
+        else if (provider === 'mistral') url = 'https://api.mistral.ai/v1/chat/completions';
         headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'Quasar AI'; }
         const openAiMessages = [
