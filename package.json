@@ -5,7 +5,7 @@
     "dependencies": {
         "bcryptjs": "^3.0.0",
         "jsonwebtoken": "^9.0.2",
-        "mongoose": "^8.0.0"
+        "mongoose": "^9.0.0"
     },
     "devDependencies": {
         "typescript": "^6.0.0",
