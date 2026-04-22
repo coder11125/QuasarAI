@@ -64,3 +64,7 @@ Code blocks in AI responses are rendered as artifact cards (inline) and optional
 - **Check for errors**: `npx tsc --noEmit`
 - **Check environment**: `ls -a | grep .env` (to verify local config)
 - **Log inspection**: `vercel logs`
+
+### Notes
+- Ignore node_modules in codebase; use the package-lock.json.
+- Do a periodic web search on latest Anthropic models and update the Anthropic hard-coded models accordingly.
