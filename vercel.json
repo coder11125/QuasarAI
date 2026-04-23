@@ -10,7 +10,7 @@
             "headers": [
                 {
                     "key": "Content-Security-Policy",
-                    "value": "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; img-src 'self' data: blob:; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https:; frame-src 'self' blob:; worker-src blob: 'self';"
+                    "value": "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https:; frame-src 'self' blob:; worker-src blob: 'self';"
                 }
             ]
         }
