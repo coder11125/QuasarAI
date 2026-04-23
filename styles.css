@@ -1,6 +1,11 @@
 /* ============================================
    BASE
    ============================================ */
+
+/* Tailwind v4 dropped !important from .hidden; restore it so hidden wins over
+   sibling display utilities (e.g. inline-flex, flex) on the same element. */
+.hidden { display: none !important; }
+
 * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
 /* Prevent iOS Safari from measuring overflowing children and scaling the
