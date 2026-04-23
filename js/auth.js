@@ -145,21 +145,24 @@ async function checkAuthOnLoad() {
     const token = getAuthToken();
     if (!token) { showAuthScreen(); return; }
 
+    // Render immediately from cached state so the user isn't staring at the
+    // auth screen while we wait for the network. Verify the token in the
+    // background and refresh data once confirmed; evict on 401.
+    document.getElementById('authScreen').classList.add('auth-hidden');
+    renderFromLocalState();
+
     try {
         const res = await fetch('/api/auth/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
-            hideAuthScreen(); // calls loadFromServer() — fresh data from MongoDB
+            loadFromServer(); // refresh with fresh data from MongoDB
         } else {
             clearAuthSession();
             showAuthScreen();
         }
     } catch {
-        // Network error — trust the token and render from localStorage so the
-        // user isn't locked out offline, but don't try to loadFromServer
-        document.getElementById('authScreen').classList.add('auth-hidden');
-        renderFromLocalState();
+        // Network error — already rendered from localStorage above, stay there
     }
 }
 
