@@ -6,10 +6,34 @@
     <title>Quasar AI</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☄️</text></svg>">
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/14.1.4/marked.min.js" integrity="sha512-oUb+v+OGnC4ls/U+74UExKiWPxg/0M1AW6WGR94XFExsapAwqFRWwG1uds2YO/k38mAaai62SKhsMQHbIYX5Rw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="tailwind.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50:  '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="text-slate-800 dark:text-slate-200 h-screen flex font-sans overflow-hidden">
@@ -360,6 +384,11 @@
                         </button>
                     </div>
 
+                    <h4 class="text-lg font-semibold text-slate-800 dark:text-white mb-2 pt-4 border-t border-slate-100 dark:border-white/5">Voice Output</h4>
+                    <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-white/5">
+                        <div id="ttsSettingsContainer"></div>
+                    </div>
+
                     <h4 class="text-lg font-semibold text-slate-800 dark:text-white mb-2 pt-4 border-t border-slate-100 dark:border-white/5">Data</h4>
                     <div class="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30">
                         <div>
@@ -475,6 +504,7 @@
     <script src="js/folders.js"></script>
     <script src="js/chat-render.js"></script>
     <script src="js/messages.js"></script>
+    <script src="js/tts.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/attachments.js"></script>
     <script src="js/send.js"></script>
