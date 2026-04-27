@@ -95,16 +95,11 @@ Seamlessly switch between leading AI providers without leaving the app:
 2. Type your message and press **Enter** to send
 3. Responses render with full Markdown support
 
-### Image Analysis
-1. Click the **📎 paperclip** icon in the input area
-2. Select an image from your device
-3. Type your question and send — AI will analyze it (vision-capable models only)
-
-### OCR — Extract Text from Images
-1. Click the **📄 document** icon in the input area
-2. Select an image containing text
-3. The AI extracts all text and shows it in a modal
-4. Click **Insert into Chat** to paste it into your message
+### Image Attachments & OCR
+1. Click the **📎 paperclip** icon in the input area and select an image
+2. The attachment preview shows two buttons:
+   - **Image** — keeps it as a vision attachment; type your question and send (vision-capable models only)
+   - **Text** — runs OCR on the image and inserts the extracted text directly into the chat input, ready to send
 
 ### Voice Input
 1. Click the **🎤 microphone** icon
