@@ -4,16 +4,35 @@ DOM.fileInput.addEventListener('change', (e) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-        currentAttachment = { dataUrl: event.target.result, type: file.type, name: file.name };
+        const dataUrl = event.target.result;
+        currentAttachment = null;
         DOM.attachmentName.textContent = file.name;
+        document.getElementById('attachmentChoiceBtns').classList.remove('hidden');
+        DOM.removeAttachmentBtn.classList.add('hidden');
         DOM.attachmentPreview.classList.remove('hidden');
         validateInput();
+
+        document.getElementById('attachSendAsImageBtn').onclick = () => {
+            currentAttachment = { dataUrl, type: file.type, name: file.name };
+            document.getElementById('attachmentChoiceBtns').classList.add('hidden');
+            DOM.removeAttachmentBtn.classList.remove('hidden');
+            validateInput();
+        };
+
+        document.getElementById('attachExtractTextBtn').onclick = async () => {
+            DOM.attachmentPreview.classList.add('hidden');
+            DOM.fileInput.value = '';
+            await runOcr(file, dataUrl);
+        };
     };
     reader.readAsDataURL(file);
 });
+
 DOM.removeAttachmentBtn.onclick = () => {
-    currentAttachment = null; DOM.fileInput.value = '';
-    DOM.attachmentPreview.classList.add('hidden'); validateInput();
+    currentAttachment = null;
+    DOM.fileInput.value = '';
+    DOM.attachmentPreview.classList.add('hidden');
+    validateInput();
 };
 
 function setupSpeechRecognition() {
