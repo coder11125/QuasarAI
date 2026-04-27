@@ -51,6 +51,26 @@ function showOcrLoading(dataUrl) {
     ocrDOM.previewImg.src = dataUrl;
 }
 
+function deduplicateOcrText(text) {
+    const lines = text.split('\n').map(l => l.trimEnd());
+    const n = lines.length;
+    if (n < 6) return text;
+
+    // Find the smallest repeating period that accounts for ≥80% of lines
+    for (let period = 1; period <= Math.floor(n / 3); period++) {
+        const pattern = lines.slice(0, period);
+        let matches = period;
+        for (let i = period; i < n; i++) {
+            if (lines[i] === '' || lines[i] === pattern[i % period]) matches++;
+            else break;
+        }
+        if (matches >= n * 0.8 && matches >= period * 2) {
+            return pattern.join('\n').trimEnd();
+        }
+    }
+    return text;
+}
+
 function showOcrResult(text) {
     ocrDOM.loading.classList.add('hidden');
     ocrDOM.errorEl.classList.add('hidden');
@@ -66,6 +86,33 @@ function showOcrError(message) {
     ocrDOM.errorEl.classList.remove('hidden');
     ocrDOM.errorEl.style.display = 'flex';
     ocrDOM.errorMsg.textContent = message;
+}
+
+function modelSupportsVision(provider, modelId) {
+    const m = modelId.toLowerCase();
+    switch (provider) {
+        case 'anthropic':
+            // claude-3 and claude-4 families support vision; claude-2 and claude-instant do not
+            return /claude-[34]/.test(m);
+        case 'google':
+            // gemini-1.5+, gemini-2+, and any model with "vision" in the name
+            // gemini-1.0-pro (text-only) is excluded
+            return /gemini-1\.[5-9]|gemini-[2-9]|gemini.*flash|gemini.*vision/.test(m);
+        case 'openai':
+            // gpt-4o, gpt-4-turbo, gpt-4-vision, gpt-4.5, o1, o3 — not gpt-3.5 or legacy gpt-4
+            return /gpt-4o|gpt-4-turbo|gpt-4-vision|gpt-4\.5|^o1|^o3/.test(m);
+        case 'groq':
+            // llava, llama-3.2 vision variants (11b/90b), llama-4
+            return /llava|llama-3\.2.*(11b|90b)|llama-4|vision/.test(m);
+        case 'mistral':
+            // only the pixtral family supports vision
+            return /pixtral/.test(m);
+        case 'openrouter':
+            // openrouter proxies many providers — match known vision-capable families
+            return /gpt-4o|gpt-4-turbo|gpt-4-vision|gpt-4\.5|claude-[34]|gemini-1\.[5-9]|gemini-[2-9]|gemini.*flash|llava|llama-3\.2.*(11b|90b)|llama-4|pixtral|qwen.*vl|internvl|phi.*vision|moondream|minicpm.*v|idefics|cogvlm|bakllava/.test(m);
+        default:
+            return false;
+    }
 }
 
 async function runOcr(file) {
@@ -88,23 +135,12 @@ async function runOcr(file) {
             return;
         }
 
-        const ocrPrompt = 'Please extract ALL text from this image exactly as it appears, preserving the original formatting, line breaks, and layout as much as possible. Output only the extracted text with no commentary or explanation.';
+        const ocrPrompt = 'Extract the foreground/main text from this image exactly as it appears. Output each piece of text only once — do not repeat any line or phrase even if it appears as a pattern or watermark in the background. If text repeats in the image, write it a single time only. Output only the extracted text with no commentary or explanation.';
         const base64 = dataUrl.split(',')[1];
         const mimeType = file.type || 'image/png';
 
-        // For Groq, only a small set of models support vision — everything else is text-only
-        if (provider === 'groq') {
-            const GROQ_VISION_MODELS = ['llava', 'vision'];
-            const supportsVision = GROQ_VISION_MODELS.some(v => modelId.toLowerCase().includes(v));
-            if (!supportsVision) {
-                showOcrError(`Groq model "${modelId.split('/').pop()}" is text-only and does not support image input. Please switch to a vision-capable model such as claude-3-5-sonnet, gpt-4o, or gemini-1.5-pro.`);
-                return;
-            }
-        }
-        // General blocklist for obviously non-vision models on other providers
-        const NON_VISION_PATTERNS = [/whisper/i, /tts/i, /embedding/i, /davinci/i, /babbage/i, /curie/i, /ada/i];
-        if (NON_VISION_PATTERNS.some(p => p.test(modelId))) {
-            showOcrError(`The selected model "${modelId.split('/').pop()}" does not support image input. Please switch to a vision-capable model (e.g. claude-3-5-sonnet, gpt-4o, gemini-1.5-pro) and try again.`);
+        if (!modelSupportsVision(provider, modelId)) {
+            showOcrError(`"${modelId.split('/').pop()}" does not support image input. Please switch to a vision-capable model (e.g. claude-3-5-sonnet, gpt-4o, gemini-1.5-flash, pixtral-12b).`);
             return;
         }
 
@@ -185,7 +221,7 @@ async function runOcr(file) {
             if (!extractedText.trim()) {
                 showOcrResult('(No text detected in this image)');
             } else {
-                showOcrResult(extractedText);
+                showOcrResult(deduplicateOcrText(extractedText));
             }
 
         } catch (err) {

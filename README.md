@@ -38,6 +38,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Full Markdown Rendering** — Code blocks with syntax highlighting, tables, lists, bold/italic, links
 - **Image Attachments** — Upload images and leverage vision capabilities
 - **Voice Input** — Hands-free messaging via Web Speech API
+- **Voice Output (TTS)** — Click the 🔊 speaker icon on any AI message to have it read aloud; click again to stop. Configurable voice, speed, and pitch in Settings → General
 - **Persistent Chat History** — Synced to MongoDB per-chat, available on any device
 - **Auto-expanding Textarea** — Input grows as you type
 - **Message Copy** — One-click copy of any message
@@ -45,7 +46,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 - **Keyboard Shortcuts** — Enter to send, Shift+Enter for new line
 - **Smart Chat Naming** — First message automatically becomes the chat title
 - **Code Blocks** — All models present code in a side panel with live Preview for HTML/SVG
-- **OCR** — Extract text from images using vision-capable models
+- **OCR** — Extract text from images using vision-capable models; with per-provider vision model validation and automatic repetition deduplication
 
 ### 📁 **Chat Folders**
 - **Create Folders** — Organise chats into colour-coded folders
@@ -110,6 +111,12 @@ Seamlessly switch between leading AI providers without leaving the app:
 2. Speak your message
 3. Click again to stop — your speech is transcribed into the input
 
+### Voice Output (Text-to-Speech)
+1. Hover over any AI message — a **🔊 speaker** icon appears alongside the copy and regenerate buttons
+2. Click it to hear the message read aloud (code blocks are skipped; only prose is spoken)
+3. Click again to stop playback
+4. Adjust voice, speed, and pitch in **⚙️ Settings → General → Voice Output**
+
 ### Manage Chats
 - **Rename** — Hover over a chat in the sidebar, click ✏️
 - **Delete** — Hover over a chat, click 🗑️
@@ -141,10 +148,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 ├── styles.css           # Styles (Tailwind + custom CSS)
 ├── vercel.json          # Vercel routing config
 ├── package.json         # Dependencies
-├── package-lock.json    # node_modules copy of dependencies
 ├── Tsconfig.json        # TypeScript compiler config
-├── .gitattributes       # Linguist config on detecting
-├── CLAUDE.md            # Claude Code config
 ├── js/
 │   ├── constants.js     # LANG_ICONS, SYSTEM_PROMPT, provider defaults
 │   ├── state.js         # State object, DOM cache, saveState()
@@ -153,6 +157,7 @@ Seamlessly switch between leading AI providers without leaving the app:
 │   ├── init.js          # init() — bootstraps everything
 │   ├── artifact-panel.js # openArtifactPanel(), closeArtifactPanel(), switchPanelTab()
 │   ├── messages.js      # parseMessageSegments(), appendMessageUI()
+│   ├── tts.js           # ttsSpeak(), ttsStop(), ttsRenderSettings() — Web Speech API TTS
 │   ├── chat-render.js   # renderChatList(), buildChatItem()
 │   ├── chats.js         # Chat CRUD, renderChat()
 │   ├── folders.js       # createFolder(), renameFolder(), deleteFolder(), moveChatToFolder()
@@ -253,7 +258,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ## 📋 Browser Requirements
 - Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
-- Web Speech API for voice input (optional, gracefully disabled if unavailable)
+- Web Speech API for voice input and voice output / TTS (optional, gracefully disabled if unavailable)
 - HTTPS required for Web Speech API
 
 ---
