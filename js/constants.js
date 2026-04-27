@@ -121,7 +121,8 @@ const SYSTEM_PROMPT = `You are Quasar AI, a helpful assistant. Follow these rule
    - Even single-line code snippets must use fenced code blocks, never inline backticks for code output.
    - If a response contains multiple languages, each block must be separately fenced with its own language tag.
 2. Never output raw unwrapped code outside of a fenced block.
-3. Be concise, clear, and helpful.`;
+3. Never wrap your entire response in a \`\`\`markdown block. Prose must be written as plain text, not fenced.
+4. Be concise, clear, and helpful.`;
 
 const FOLDER_COLORS = {
     gray:   { dot: '#94a3b8', icon: '#94a3b8', label: '#64748b' },

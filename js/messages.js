@@ -8,7 +8,12 @@ function parseMessageSegments(text) {
             const tb = text.slice(lastIndex, match.index).trim();
             if (tb) segments.push({ type: 'text', content: tb });
         }
-        segments.push({ type: 'code', lang: (match[1] || 'plaintext').toLowerCase(), content: match[2] });
+        const lang = (match[1] || 'plaintext').toLowerCase();
+        if (lang === 'markdown' || lang === 'md') {
+            segments.push({ type: 'text', content: match[2] });
+        } else {
+            segments.push({ type: 'code', lang, content: match[2] });
+        }
         lastIndex = match.index + match[0].length;
     }
     if (lastIndex < text.length) {
