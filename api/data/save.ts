@@ -3,6 +3,7 @@ import { connectDB } from '../../lib/db.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
 import { UserData } from '../../lib/models/userData.js';
 import { encryptKeys } from '../../lib/crypto.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 
 const ALLOWED_KEYS = ['google', 'openai', 'anthropic', 'groq', 'openrouter', 'mistral'];
 const MAX_KEY_LENGTH = 512; // API keys are never longer than this
@@ -37,6 +38,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     try {
         await connectDB();
+
+        const allowed = await checkRateLimit('data_save', req, res, user.userId, 30);
+        if (!allowed) return;
 
         await UserData.findOneAndUpdate(
             { userId: user.userId },

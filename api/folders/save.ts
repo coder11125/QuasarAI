@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectDB } from '../../lib/db.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
 import { Folder } from '../../lib/models/Folder.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') {
@@ -28,6 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     try {
         await connectDB();
+
+        const allowed = await checkRateLimit('folder_save', req, res, user.userId, 60);
+        if (!allowed) return;
 
         await Folder.findOneAndUpdate(
             { folderId, userId: user.userId },

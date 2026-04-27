@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectDB } from '../../lib/db.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
 import { Chat } from '../../lib/models/Chat.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'POST') {
@@ -21,6 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     try {
         await connectDB();
+
+        const allowed = await checkRateLimit('chat_save', req, res, user.userId, 120);
+        if (!allowed) return;
 
         await Chat.findOneAndUpdate(
             { chatId, userId: user.userId },

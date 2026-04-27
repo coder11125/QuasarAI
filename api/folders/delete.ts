@@ -3,6 +3,7 @@ import { connectDB } from '../../lib/db.js';
 import { requireAuth } from '../../lib/authMiddleware.js';
 import { Folder } from '../../lib/models/Folder.js';
 import { Chat } from '../../lib/models/Chat.js';
+import { checkRateLimit } from '../../lib/rateLimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (req.method !== 'DELETE') {
@@ -22,6 +23,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     try {
         await connectDB();
+
+        const allowed = await checkRateLimit('folder_delete', req, res, user.userId, 30);
+        if (!allowed) return;
 
         // Delete the folder
         await Folder.findOneAndDelete({ folderId, userId: user.userId });
