@@ -41,6 +41,7 @@ function ttsSpeak(text, btn) {
         return;
     }
 
+    const wasSpeaking = window.speechSynthesis.speaking;
     ttsStop();
 
     const plain = ttsGetPlainText(text);
@@ -69,14 +70,18 @@ function ttsSpeak(text, btn) {
     utterance.onend  = reset;
     utterance.onerror = reset;
 
-    // Voice lookup must be synchronous — async breaks the user-gesture requirement
-    // in Safari/iOS, causing speak() to silently do nothing.
     const savedVoice = state.tts?.voice;
     if (savedVoice) {
         const match = window.speechSynthesis.getVoices().find(v => v.name === savedVoice);
         if (match) utterance.voice = match;
     }
-    window.speechSynthesis.speak(utterance);
+    // Chrome drops speak() when called immediately after cancel(). Safari requires speak()
+    // to stay synchronous (user gesture). Only defer when we actually cancelled something.
+    if (wasSpeaking) {
+        setTimeout(() => window.speechSynthesis.speak(utterance), 100);
+    } else {
+        window.speechSynthesis.speak(utterance);
+    }
 }
 
 function ttsStop() {
@@ -163,12 +168,17 @@ function ttsRenderSettings(container) {
     };
 
     testBtn.onclick = () => {
+        const wasSpeaking = window.speechSynthesis.speaking;
         ttsStop();
-        const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
-        u.rate  = parseFloat(rateRange.value);
-        u.pitch = parseFloat(pitchRange.value);
-        const match = window.speechSynthesis.getVoices().find(v => v.name === voiceSel.value);
-        if (match) u.voice = match;
-        window.speechSynthesis.speak(u);
+        const doSpeak = () => {
+            const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
+            u.rate  = parseFloat(rateRange.value);
+            u.pitch = parseFloat(pitchRange.value);
+            const match = window.speechSynthesis.getVoices().find(v => v.name === voiceSel.value);
+            if (match) u.voice = match;
+            window.speechSynthesis.speak(u);
+        };
+        // Chrome drops speak() immediately after cancel(); Safari needs it synchronous.
+        if (wasSpeaking) setTimeout(doSpeak, 100); else doSpeak();
     };
 }

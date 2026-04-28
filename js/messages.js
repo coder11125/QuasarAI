@@ -75,6 +75,7 @@ function renderStreamingContent(el, text) {
 function finaliseStreamingBubble(wrapper, text) {
     const bubble = wrapper.querySelector('.message-ai');
     if (!bubble) return;
+    bubble.setAttribute('data-message-text', text);
     bubble.innerHTML = ''; // clear streaming content
     bubble.className = 'max-w-[90%] md:max-w-[80%] message-ai overflow-hidden';
 
@@ -236,7 +237,8 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
         speakBtn.innerHTML = '<i class="fas fa-volume-up text-sm"></i>';
         speakBtn.onclick = (e) => {
             e.stopPropagation();
-            ttsSpeak(text, speakBtn);
+            const live = wrapper.querySelector('.message-ai')?.getAttribute('data-message-text') || text;
+            ttsSpeak(live, speakBtn);
         };
         btnContainer.appendChild(speakBtn);
     }
