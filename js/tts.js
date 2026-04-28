@@ -1,9 +1,23 @@
 // --- TEXT-TO-SPEECH ---
 const _tts = {
     speakingBtn: null,
+    voices: [],
 };
 
+// Eagerly cache voices on script load. Chrome returns [] synchronously the first time;
+// `voiceschanged` fires once they're ready. Safari populates synchronously.
+function _ttsLoadVoices() {
+    _tts.voices = window.speechSynthesis.getVoices();
+    const sel = document.getElementById('ttsVoiceSelect');
+    if (sel) ttsPopulateVoices(sel);
+}
+if ('speechSynthesis' in window) {
+    _ttsLoadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', _ttsLoadVoices);
+}
+
 function ttsGetPlainText(text) {
+    if (!text) return '';
     return parseMessageSegments(text)
         .filter(s => s.type === 'text')
         .map(s => s.content)
@@ -11,23 +25,9 @@ function ttsGetPlainText(text) {
         .trim();
 }
 
-function ttsGetVoices() {
-    return new Promise(resolve => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length) { resolve(voices); return; }
-        const handler = () => {
-            window.speechSynthesis.onvoiceschanged = null;
-            resolve(window.speechSynthesis.getVoices());
-        };
-        window.speechSynthesis.onvoiceschanged = handler;
-        // Fallback for browsers that never fire onvoiceschanged
-        setTimeout(() => {
-            if (window.speechSynthesis.onvoiceschanged === handler) {
-                window.speechSynthesis.onvoiceschanged = null;
-                resolve(window.speechSynthesis.getVoices());
-            }
-        }, 1000);
-    });
+function _ttsEnsureState() {
+    if (!state.tts) state.tts = { voice: '', rate: 1, pitch: 1 };
+    return state.tts;
 }
 
 function ttsSpeak(text, btn) {
@@ -36,20 +36,28 @@ function ttsSpeak(text, btn) {
         return;
     }
 
-    if (_tts.speakingBtn === btn && window.speechSynthesis.speaking) {
+    // Toggle off when re-clicking the active button
+    if (_tts.speakingBtn === btn && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
         ttsStop();
         return;
     }
 
-    const wasSpeaking = window.speechSynthesis.speaking;
-    ttsStop();
-
     const plain = ttsGetPlainText(text);
-    if (!plain) return;
+    if (!plain) {
+        showToast('Nothing to speak in this message.');
+        return;
+    }
 
+    const s = _ttsEnsureState();
     const utterance = new SpeechSynthesisUtterance(plain);
-    utterance.rate  = state.tts?.rate  ?? 1;
-    utterance.pitch = state.tts?.pitch ?? 1;
+    utterance.rate  = Number(s.rate)  || 1;
+    utterance.pitch = Number(s.pitch) || 1;
+    utterance.volume = 1;
+
+    if (s.voice) {
+        const match = _tts.voices.find(v => v.name === s.voice);
+        if (match) { utterance.voice = match; utterance.lang = match.lang; }
+    }
 
     utterance.onstart = () => {
         _tts.speakingBtn = btn;
@@ -66,25 +74,23 @@ function ttsSpeak(text, btn) {
             _tts.speakingBtn = null;
         }
     };
-
     utterance.onend  = reset;
     utterance.onerror = reset;
 
-    const savedVoice = state.tts?.voice;
-    if (savedVoice) {
-        const match = window.speechSynthesis.getVoices().find(v => v.name === savedVoice);
-        if (match) utterance.voice = match;
-    }
-    // Chrome drops speak() when called immediately after cancel(). Safari requires speak()
-    // to stay synchronous (user gesture). Only defer when we actually cancelled something.
+    const wasSpeaking = window.speechSynthesis.speaking || window.speechSynthesis.pending;
     if (wasSpeaking) {
-        setTimeout(() => window.speechSynthesis.speak(utterance), 100);
+        // Switching from another utterance: cancel + small delay to dodge the
+        // Chrome bug where speak() right after cancel() is silently dropped.
+        window.speechSynthesis.cancel();
+        setTimeout(() => window.speechSynthesis.speak(utterance), 250);
     } else {
+        // Fresh speak: stay synchronous so Safari/iOS keeps the user gesture.
         window.speechSynthesis.speak(utterance);
     }
 }
 
 function ttsStop() {
+    if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     if (_tts.speakingBtn) {
         _tts.speakingBtn.innerHTML = '<i class="fas fa-volume-up text-sm"></i>';
@@ -94,9 +100,15 @@ function ttsStop() {
     }
 }
 
-function ttsPopulateVoices(selectEl, voices) {
+function ttsPopulateVoices(selectEl) {
+    if (!selectEl) return;
     const current = state.tts?.voice || '';
-    selectEl.innerHTML = '<option value="">Default</option>';
+    const voices = _tts.voices;
+    selectEl.innerHTML = '';
+    const def = document.createElement('option');
+    def.value = '';
+    def.textContent = voices.length ? 'Default' : 'Loading voices…';
+    selectEl.appendChild(def);
     voices.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.name;
@@ -112,7 +124,7 @@ function ttsRenderSettings(container) {
         return;
     }
 
-    const s = state.tts || { voice: '', rate: 1, pitch: 1 };
+    const s = _ttsEnsureState();
 
     container.innerHTML = `
         <div class="space-y-4">
@@ -143,42 +155,46 @@ function ttsRenderSettings(container) {
     const pitchLabel = container.querySelector('#ttsPitchLabel');
     const testBtn    = container.querySelector('#ttsTestBtn');
 
-    ttsGetVoices().then(voices => ttsPopulateVoices(voiceSel, voices));
+    // Voices may already be cached, or may load shortly via voiceschanged.
+    ttsPopulateVoices(voiceSel);
+    if (!_tts.voices.length) {
+        // Force a getVoices() call — some browsers need this to trigger loading.
+        window.speechSynthesis.getVoices();
+    }
 
     voiceSel.onchange = () => {
-        if (!state.tts) state.tts = { voice: '', rate: 1, pitch: 1 };
-        state.tts.voice = voiceSel.value;
+        _ttsEnsureState().voice = voiceSel.value;
         saveState();
     };
 
     rateRange.oninput = () => {
         const val = parseFloat(rateRange.value);
         rateLabel.textContent = val + 'x';
-        if (!state.tts) state.tts = { voice: '', rate: 1, pitch: 1 };
-        state.tts.rate = val;
+        _ttsEnsureState().rate = val;
         saveState();
     };
 
     pitchRange.oninput = () => {
         const val = parseFloat(pitchRange.value);
         pitchLabel.textContent = val;
-        if (!state.tts) state.tts = { voice: '', rate: 1, pitch: 1 };
-        state.tts.pitch = val;
+        _ttsEnsureState().pitch = val;
         saveState();
     };
 
     testBtn.onclick = () => {
-        const wasSpeaking = window.speechSynthesis.speaking;
-        ttsStop();
-        const doSpeak = () => {
-            const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
-            u.rate  = parseFloat(rateRange.value);
-            u.pitch = parseFloat(pitchRange.value);
-            const match = window.speechSynthesis.getVoices().find(v => v.name === voiceSel.value);
-            if (match) u.voice = match;
+        const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
+        u.rate  = parseFloat(rateRange.value)  || 1;
+        u.pitch = parseFloat(pitchRange.value) || 1;
+        u.volume = 1;
+        const match = _tts.voices.find(v => v.name === voiceSel.value);
+        if (match) { u.voice = match; u.lang = match.lang; }
+
+        const wasSpeaking = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+        if (wasSpeaking) {
+            window.speechSynthesis.cancel();
+            setTimeout(() => window.speechSynthesis.speak(u), 250);
+        } else {
             window.speechSynthesis.speak(u);
-        };
-        // Chrome drops speak() immediately after cancel(); Safari needs it synchronous.
-        if (wasSpeaking) setTimeout(doSpeak, 100); else doSpeak();
+        }
     };
 }
