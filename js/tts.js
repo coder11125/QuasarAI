@@ -69,14 +69,14 @@ function ttsSpeak(text, btn) {
     utterance.onend  = reset;
     utterance.onerror = reset;
 
-    ttsGetVoices().then(voices => {
-        const savedVoice = state.tts?.voice;
-        if (savedVoice) {
-            const match = voices.find(v => v.name === savedVoice);
-            if (match) utterance.voice = match;
-        }
-        window.speechSynthesis.speak(utterance);
-    });
+    // Voice lookup must be synchronous — async breaks the user-gesture requirement
+    // in Safari/iOS, causing speak() to silently do nothing.
+    const savedVoice = state.tts?.voice;
+    if (savedVoice) {
+        const match = window.speechSynthesis.getVoices().find(v => v.name === savedVoice);
+        if (match) utterance.voice = match;
+    }
+    window.speechSynthesis.speak(utterance);
 }
 
 function ttsStop() {
@@ -167,10 +167,8 @@ function ttsRenderSettings(container) {
         const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
         u.rate  = parseFloat(rateRange.value);
         u.pitch = parseFloat(pitchRange.value);
-        ttsGetVoices().then(voices => {
-            const match = voices.find(v => v.name === voiceSel.value);
-            if (match) u.voice = match;
-            window.speechSynthesis.speak(u);
-        });
+        const match = window.speechSynthesis.getVoices().find(v => v.name === voiceSel.value);
+        if (match) u.voice = match;
+        window.speechSynthesis.speak(u);
     };
 }
