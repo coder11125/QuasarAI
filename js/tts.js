@@ -11,6 +11,25 @@ function ttsGetPlainText(text) {
         .trim();
 }
 
+function ttsGetVoices() {
+    return new Promise(resolve => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length) { resolve(voices); return; }
+        const handler = () => {
+            window.speechSynthesis.onvoiceschanged = null;
+            resolve(window.speechSynthesis.getVoices());
+        };
+        window.speechSynthesis.onvoiceschanged = handler;
+        // Fallback for browsers that never fire onvoiceschanged
+        setTimeout(() => {
+            if (window.speechSynthesis.onvoiceschanged === handler) {
+                window.speechSynthesis.onvoiceschanged = null;
+                resolve(window.speechSynthesis.getVoices());
+            }
+        }, 1000);
+    });
+}
+
 function ttsSpeak(text, btn) {
     if (!('speechSynthesis' in window)) {
         showToast('Text-to-speech is not supported in this browser.');
@@ -31,12 +50,6 @@ function ttsSpeak(text, btn) {
     utterance.rate  = state.tts?.rate  ?? 1;
     utterance.pitch = state.tts?.pitch ?? 1;
 
-    const savedVoice = state.tts?.voice;
-    if (savedVoice) {
-        const match = window.speechSynthesis.getVoices().find(v => v.name === savedVoice);
-        if (match) utterance.voice = match;
-    }
-
     utterance.onstart = () => {
         _tts.speakingBtn = btn;
         btn.innerHTML = '<i class="fas fa-stop text-sm"></i>';
@@ -56,7 +69,14 @@ function ttsSpeak(text, btn) {
     utterance.onend  = reset;
     utterance.onerror = reset;
 
-    window.speechSynthesis.speak(utterance);
+    ttsGetVoices().then(voices => {
+        const savedVoice = state.tts?.voice;
+        if (savedVoice) {
+            const match = voices.find(v => v.name === savedVoice);
+            if (match) utterance.voice = match;
+        }
+        window.speechSynthesis.speak(utterance);
+    });
 }
 
 function ttsStop() {
@@ -69,8 +89,7 @@ function ttsStop() {
     }
 }
 
-function ttsPopulateVoices(selectEl) {
-    const voices = window.speechSynthesis.getVoices();
+function ttsPopulateVoices(selectEl, voices) {
     const current = state.tts?.voice || '';
     selectEl.innerHTML = '<option value="">Default</option>';
     voices.forEach(v => {
@@ -95,7 +114,7 @@ function ttsRenderSettings(container) {
             <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Voice</label>
                 <select id="ttsVoiceSelect" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 focus:ring-1 ring-brand-500">
-                    <option value="">Default</option>
+                    <option value="">Loading voices…</option>
                 </select>
             </div>
             <div class="flex flex-col gap-1.5">
@@ -119,11 +138,7 @@ function ttsRenderSettings(container) {
     const pitchLabel = container.querySelector('#ttsPitchLabel');
     const testBtn    = container.querySelector('#ttsTestBtn');
 
-    const populate = () => ttsPopulateVoices(voiceSel);
-    populate();
-    if ('onvoiceschanged' in window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = populate;
-    }
+    ttsGetVoices().then(voices => ttsPopulateVoices(voiceSel, voices));
 
     voiceSel.onchange = () => {
         if (!state.tts) state.tts = { voice: '', rate: 1, pitch: 1 };
@@ -152,8 +167,10 @@ function ttsRenderSettings(container) {
         const u = new SpeechSynthesisUtterance('Hello! This is how I sound with the current settings.');
         u.rate  = parseFloat(rateRange.value);
         u.pitch = parseFloat(pitchRange.value);
-        const match = window.speechSynthesis.getVoices().find(v => v.name === voiceSel.value);
-        if (match) u.voice = match;
-        window.speechSynthesis.speak(u);
+        ttsGetVoices().then(voices => {
+            const match = voices.find(v => v.name === voiceSel.value);
+            if (match) u.voice = match;
+            window.speechSynthesis.speak(u);
+        });
     };
 }
