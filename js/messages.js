@@ -230,17 +230,7 @@ function appendMessageUI(role, text, attachment = null, streaming = false) {
         };
         btnContainer.appendChild(regenBtn);
 
-        const speakBtn = document.createElement('button');
-        speakBtn.className = 'p-2 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-white dark:hover:bg-slate-800 transition-colors';
-        speakBtn.title = 'Speak message';
-        speakBtn.type = 'button';
-        speakBtn.innerHTML = '<i class="fas fa-volume-up text-sm"></i>';
-        speakBtn.onclick = (e) => {
-            e.stopPropagation();
-            const live = wrapper.querySelector('.message-ai')?.getAttribute('data-message-text') || text;
-            ttsSpeak(live, speakBtn);
-        };
-        btnContainer.appendChild(speakBtn);
+
     }
 
     wrapper.appendChild(btnContainer);

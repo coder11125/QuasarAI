@@ -2,8 +2,6 @@
 function openSettings(tabId = 'general') {
     switchTab(tabId);
     renderProviderSettings();
-    const ttsCont = document.getElementById('ttsSettingsContainer');
-    if (ttsCont) ttsRenderSettings(ttsCont);
     DOM.settingsModal.classList.replace('hidden', 'flex');
 }
 function closeSettings() {

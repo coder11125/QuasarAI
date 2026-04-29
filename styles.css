@@ -64,11 +64,6 @@ body {
 }
 .toast-enter { animation: toastSlide 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-@keyframes ttsPulse {
-    0%, 100% { color: #3b82f6; }
-    50%       { color: #93c5fd; }
-}
-.tts-speaking { animation: ttsPulse 1s ease-in-out infinite !important; color: #3b82f6 !important; }
 
 /* ============================================
    SIDEBAR

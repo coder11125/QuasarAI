@@ -8,8 +8,7 @@ let state = {
     selectedModel: '',
     theme: 'light',
     sidebarCollapsed: false,
-    searchQuery: '',
-    tts: { voice: '', rate: 1, pitch: 1 }
+    searchQuery: ''
 };
 
 // Tracks sidebar folder collapse state (session-only, not persisted)
