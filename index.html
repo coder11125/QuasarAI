@@ -405,7 +405,7 @@
                         <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-white/5">
                             <h5 class="font-bold text-slate-800 dark:text-white mb-2"><i class="fas fa-shield-alt text-brand-500 mr-2"></i> Privacy</h5>
                             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                                All chat histories and API keys are stored locally on your device using <code>localStorage</code>. Quasar AI only connects directly to the API endpoints you configure.
+                                Chat histories and API keys are cached locally in <code>localStorage</code> and synced to the Quasar backend (MongoDB). API keys are encrypted with AES-256-GCM before being stored on the server. The app connects to the AI provider APIs you configure and to the Quasar backend for sync and authentication.
                             </p>
                         </div>
                     </div>
