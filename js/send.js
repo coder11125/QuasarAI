@@ -33,7 +33,11 @@ DOM.chatForm.onsubmit = async (e) => {
     requestAnimationFrame(() => scrollToBottom());
 
     try {
-        const history = state.chats[state.currentChatId].messages.slice(-12);
+        const chat = state.chats[state.currentChatId];
+        const needsSummary = chat.messages.length > SUMMARY_THRESHOLD &&
+            (!chat.summary || (chat.messages.slice(0, -RECENT_KEEP).length - (chat.summaryUpToIndex || 0)) >= SUMMARY_REBATCH);
+        if (needsSummary) renderStreamingContent(aiBubble, '_Summarizing conversation context…_');
+        const history = await getHistoryWithSummary(chat, provider, modelId, apiKey);
         const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             // Update the bubble with each new chunk
             renderStreamingContent(aiBubble, partial);
@@ -54,6 +58,42 @@ DOM.chatForm.onsubmit = async (e) => {
 DOM.userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!DOM.sendBtn.disabled) DOM.chatForm.dispatchEvent(new Event('submit')); }
 });
+
+// --- CONTEXT SUMMARISATION ---
+async function getHistoryWithSummary(chat, provider, modelId, apiKey) {
+    const messages = chat.messages;
+    if (messages.length <= SUMMARY_THRESHOLD) return messages.slice(-12);
+
+    const olderMessages  = messages.slice(0, -RECENT_KEEP);
+    const recentMessages = messages.slice(-RECENT_KEEP);
+    const summaryIndex   = olderMessages.length;
+
+    const needsNewSummary = !chat.summary ||
+        (summaryIndex - (chat.summaryUpToIndex || 0)) >= SUMMARY_REBATCH;
+
+    if (needsNewSummary) {
+        const transcript = olderMessages
+            .filter(m => m.text)
+            .map(m => `${m.role === 'ai' ? 'Assistant' : 'User'}: ${m.text}`)
+            .join('\n\n');
+        const summaryHistory = [{
+            role: 'user',
+            text: `Summarize the following conversation in 3-5 sentences, preserving all important facts, decisions, code details, and context:\n\n${transcript}`
+        }];
+        try {
+            chat.summary = await callAIProvider(provider, modelId, apiKey, summaryHistory, null);
+            chat.summaryUpToIndex = summaryIndex;
+        } catch {
+            return messages.slice(-12);
+        }
+    }
+
+    return [
+        { role: 'user', text: `[Earlier conversation summary: ${chat.summary}]` },
+        { role: 'ai',   text: 'Understood, I have the context from our earlier conversation.' },
+        ...recentMessages
+    ];
+}
 
 // --- STREAMING AI PROVIDER ---
 // onChunk(text) is called with each new text chunk as it arrives.

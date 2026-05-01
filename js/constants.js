@@ -137,3 +137,7 @@ const FOLDER_COLORS = {
 
 const AUTH_TOKEN_KEY = 'quasar_auth_token';
 const AUTH_USER_KEY  = 'quasar_auth_user';
+
+const SUMMARY_THRESHOLD = 20; // total messages before auto-summarising older context
+const RECENT_KEEP       = 8;  // always send this many recent messages verbatim
+const SUMMARY_REBATCH   = 4;  // only regenerate summary after this many new older messages
