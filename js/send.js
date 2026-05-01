@@ -23,6 +23,7 @@ DOM.chatForm.onsubmit = async (e) => {
     DOM.chatFooter.classList.remove('input-centered');
     DOM.welcomeHeadline.classList.add('hidden');
 
+    clearTokenStatusBar();
     appendMessageUI('user', text, currentAttachment);
     DOM.userInput.value = ''; DOM.userInput.style.height = 'auto';
     DOM.removeAttachmentBtn.click();
@@ -38,13 +39,14 @@ DOM.chatForm.onsubmit = async (e) => {
             (!chat.summary || (chat.messages.slice(0, -RECENT_KEEP).length - (chat.summaryUpToIndex || 0)) >= SUMMARY_REBATCH);
         if (needsSummary) renderStreamingContent(aiBubble, '_Summarizing conversation context…_');
         const history = await getHistoryWithSummary(chat, provider, modelId, apiKey);
-        const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+        const { text: responseText, usage } = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             // Update the bubble with each new chunk
             renderStreamingContent(aiBubble, partial);
             scrollToBottom();
         });
         // Streaming done — do a final full render with markdown/artifacts
         finaliseStreamingBubble(aiWrapper, responseText);
+        updateTokenStatusBar(usage, modelId);
         state.chats[state.currentChatId].messages.push({ role: 'ai', text: responseText });
         state.chats[state.currentChatId].updatedAt = Date.now();
         saveState(state.currentChatId); renderChatList();
@@ -81,7 +83,7 @@ async function getHistoryWithSummary(chat, provider, modelId, apiKey) {
             text: `Summarize the following conversation in 3-5 sentences, preserving all important facts, decisions, code details, and context:\n\n${transcript}`
         }];
         try {
-            chat.summary = await callAIProvider(provider, modelId, apiKey, summaryHistory, null);
+            chat.summary = (await callAIProvider(provider, modelId, apiKey, summaryHistory, null)).text;
             chat.summaryUpToIndex = summaryIndex;
         } catch {
             return messages.slice(-12);
@@ -155,7 +157,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
                 return { role: r, content: msg.text };
             })
         ];
-        body = { model: modelId, messages: openAiMessages, stream: true };
+        body = { model: modelId, messages: openAiMessages, stream: true, stream_options: { include_usage: true } };
     }
 
     const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -169,6 +171,7 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
     const decoder = new TextDecoder();
     let fullText = '';
     let buffer = '';
+    let inputTokens = 0, outputTokens = 0;
 
     while (true) {
         const { done, value } = await reader.read();
@@ -187,9 +190,23 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
 
                 if (provider === 'google') {
                     chunk = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    if (json.usageMetadata) {
+                        inputTokens = json.usageMetadata.promptTokenCount || 0;
+                        outputTokens = json.usageMetadata.candidatesTokenCount || 0;
+                    }
                 } else if (provider === 'anthropic') {
-                    if (json.type === 'content_block_delta') chunk = json.delta?.text || '';
+                    if (json.type === 'message_start') {
+                        inputTokens = json.message?.usage?.input_tokens || 0;
+                    } else if (json.type === 'message_delta') {
+                        outputTokens = json.usage?.output_tokens || 0;
+                    } else if (json.type === 'content_block_delta') {
+                        chunk = json.delta?.text || '';
+                    }
                 } else {
+                    if (json.usage) {
+                        inputTokens = json.usage.prompt_tokens || 0;
+                        outputTokens = json.usage.completion_tokens || 0;
+                    }
                     chunk = json.choices?.[0]?.delta?.content || '';
                 }
 
@@ -201,5 +218,5 @@ async function callAIProvider(provider, modelId, apiKey, messagesHistory, onChun
         }
     }
 
-    return fullText || 'No response.';
+    return { text: fullText || 'No response.', usage: { inputTokens, outputTokens } };
 }

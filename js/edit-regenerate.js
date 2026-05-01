@@ -117,11 +117,12 @@ function editMessage(messageWrapper, originalText, originalAttachment) {
 
         try {
             const history = chat.messages.slice(-12);
-            const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+            const { text: responseText, usage } = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
                 renderStreamingContent(aiBubble, partial);
                 scrollToBottom();
             });
             finaliseStreamingBubble(aiWrapper, responseText);
+            updateTokenStatusBar(usage, modelId);
             chat.messages.push({ role: 'ai', text: responseText });
             chat.updatedAt = Date.now();
             saveState(state.currentChatId);
@@ -188,11 +189,11 @@ async function regenerateResponse(aiMessageWrapper) {
 
     try {
         const history = chat.messages.slice(0, actualIndex);
-        const responseText = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
+        const { text: responseText, usage } = await callAIProvider(provider, modelId, apiKey, history, (partial) => {
             renderStreamingContent(aiBubble, partial);
             scrollToBottom();
         });
-
+        updateTokenStatusBar(usage, modelId);
         chat.messages[actualIndex].text = responseText;
         chat.updatedAt = Date.now();
         saveState(state.currentChatId);

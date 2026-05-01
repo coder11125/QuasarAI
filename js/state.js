@@ -66,7 +66,39 @@ const DOM = {
     artifactPanelCode: document.getElementById('artifactPanelCode'),
     artifactPanelIframe: document.getElementById('artifactPanelIframe'),
     artifactPanelCopyBtn: document.getElementById('artifactPanelCopyBtn'),
+    tokenStatusBar: document.getElementById('tokenStatusBar'),
 };
+
+function updateTokenStatusBar(usage, modelId) {
+    if (!usage || (!usage.inputTokens && !usage.outputTokens)) return;
+    const { inputTokens, outputTokens } = usage;
+    const pricing = MODEL_PRICING[modelId];
+
+    let costPart = '';
+    if (pricing) {
+        if (pricing.label === 'free') {
+            costPart = `<span class="mx-1 opacity-30">·</span><span style="color:#22c55e">free</span>`;
+        } else {
+            const cost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+            const fmt = cost < 0.0001 ? '<$0.0001' : '$' + cost.toFixed(4);
+            costPart = `<span class="mx-1 opacity-30">·</span><span>${fmt}</span>`;
+        }
+    }
+
+    DOM.tokenStatusBar.innerHTML =
+        `<i class="fas fa-microchip mr-1" style="font-size:9px;opacity:0.5"></i>` +
+        `<span>↑${inputTokens.toLocaleString()}</span>` +
+        `<span class="mx-1 opacity-30">·</span>` +
+        `<span>↓${outputTokens.toLocaleString()}</span>` +
+        costPart;
+    DOM.tokenStatusBar.classList.remove('hidden');
+    DOM.tokenStatusBar.classList.add('flex');
+}
+
+function clearTokenStatusBar() {
+    DOM.tokenStatusBar.classList.add('hidden');
+    DOM.tokenStatusBar.classList.remove('flex');
+}
 
 function saveState(changedChatId = null) {
     localStorage.setItem('quasar_state', JSON.stringify(state));
