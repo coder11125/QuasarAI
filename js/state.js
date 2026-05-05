@@ -69,21 +69,43 @@ const DOM = {
     tokenStatusBar: document.getElementById('tokenStatusBar'),
 };
 
+const TOKEN_USAGE_KEY = 'quasar_token_usage';
+
+function loadTokenUsage() {
+    try { return JSON.parse(localStorage.getItem(TOKEN_USAGE_KEY)) || {}; } catch { return {}; }
+}
+
+function accumulateTokenUsage(modelFullId, inputTokens, outputTokens, cost) {
+    const all = loadTokenUsage();
+    const entry = all[modelFullId] || { inputTokens: 0, outputTokens: 0, cost: 0, requests: 0 };
+    entry.inputTokens += inputTokens;
+    entry.outputTokens += outputTokens;
+    entry.cost += cost;
+    entry.requests += 1;
+    all[modelFullId] = entry;
+    localStorage.setItem(TOKEN_USAGE_KEY, JSON.stringify(all));
+}
+
 function updateTokenStatusBar(usage, modelId) {
     if (!usage || (!usage.inputTokens && !usage.outputTokens)) return;
     const { inputTokens, outputTokens } = usage;
     const pricing = MODEL_PRICING[modelId];
 
+    let cost = 0;
     let costPart = '';
     if (pricing) {
         if (pricing.label === 'free') {
             costPart = `<span class="mx-1 opacity-30">·</span><span style="color:#22c55e">free</span>`;
         } else {
-            const cost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+            cost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
             const fmt = cost < 0.0001 ? '<$0.0001' : '$' + cost.toFixed(4);
             costPart = `<span class="mx-1 opacity-30">·</span><span>${fmt}</span>`;
         }
     }
+
+    // Accumulate into persistent usage stats
+    const modelFullId = state.selectedModel || modelId;
+    accumulateTokenUsage(modelFullId, inputTokens, outputTokens, cost);
 
     DOM.tokenStatusBar.innerHTML =
         `<i class="fas fa-microchip mr-1" style="font-size:9px;opacity:0.5"></i>` +

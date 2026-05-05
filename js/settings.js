@@ -2,10 +2,86 @@
 function openSettings(tabId = 'general') {
     switchTab(tabId);
     renderProviderSettings();
+    renderUsageTab();
     DOM.settingsModal.classList.replace('hidden', 'flex');
 }
 function closeSettings() {
     DOM.settingsModal.classList.replace('flex', 'hidden');
+}
+
+function renderUsageTab() {
+    const wrap = document.getElementById('usageTableWrap');
+    if (!wrap) return;
+    const all = loadTokenUsage();
+    const entries = Object.entries(all);
+
+    if (entries.length === 0) {
+        wrap.innerHTML = `<div class="p-8 text-center text-slate-400 dark:text-slate-500 text-sm">
+            <i class="fas fa-chart-bar text-3xl mb-3 block opacity-30"></i>
+            No usage recorded yet. Start a conversation to see stats here.
+        </div>`;
+        return;
+    }
+
+    let totalIn = 0, totalOut = 0, totalCost = 0, totalReq = 0;
+    const rows = entries.map(([modelFullId, e]) => {
+        totalIn   += e.inputTokens;
+        totalOut  += e.outputTokens;
+        totalCost += e.cost;
+        totalReq  += e.requests;
+
+        const [provKey, ...rest] = modelFullId.split('|');
+        const modelShort = (rest.join('|') || modelFullId).split('/').pop();
+        const provName = DEFAULT_PROVIDERS[provKey]?.name || provKey;
+        const pricing = MODEL_PRICING[rest.join('|')];
+        const isFree = pricing?.label === 'free';
+
+        const costCell = isFree
+            ? `<span class="text-emerald-500 font-medium">free</span>`
+            : e.cost > 0
+                ? `<span>$${e.cost.toFixed(4)}</span>`
+                : `<span class="text-slate-400">—</span>`;
+
+        return `<tr class="border-t border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <td class="px-4 py-3">
+                <div class="font-medium text-slate-800 dark:text-slate-200 text-sm">${escapeHtml(modelShort)}</div>
+                <div class="text-xs text-slate-400 mt-0.5">${escapeHtml(provName)}</div>
+            </td>
+            <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-300 tabular-nums">${e.inputTokens.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-300 tabular-nums">${e.outputTokens.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-right tabular-nums">${costCell}</td>
+            <td class="px-4 py-3 text-sm text-right text-slate-500 dark:text-slate-400 tabular-nums">${e.requests}</td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-slate-50 dark:bg-slate-800/70">
+                <th class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model</th>
+                <th class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">Input Tokens</th>
+                <th class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">Output Tokens</th>
+                <th class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">Est. Cost</th>
+                <th class="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-right">Requests</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+            <tr class="border-t-2 border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/50">
+                <td class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200">Total</td>
+                <td class="px-4 py-3 text-sm font-bold text-right text-slate-700 dark:text-slate-200 tabular-nums">${totalIn.toLocaleString()}</td>
+                <td class="px-4 py-3 text-sm font-bold text-right text-slate-700 dark:text-slate-200 tabular-nums">${totalOut.toLocaleString()}</td>
+                <td class="px-4 py-3 text-sm font-bold text-right text-slate-700 dark:text-slate-200 tabular-nums">${totalCost > 0 ? '$' + totalCost.toFixed(4) : '—'}</td>
+                <td class="px-4 py-3 text-sm font-bold text-right text-slate-700 dark:text-slate-200 tabular-nums">${totalReq}</td>
+            </tr>
+        </tfoot>
+    </table>`;
+}
+
+function resetTokenUsage() {
+    if (!confirm('Reset all token usage stats? This cannot be undone.')) return;
+    localStorage.removeItem(TOKEN_USAGE_KEY);
+    renderUsageTab();
+    showToast('Token usage stats cleared.', 'success');
 }
 function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));

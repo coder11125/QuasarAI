@@ -343,6 +343,9 @@
                 <button onclick="switchTab('api')" id="tab-btn-api" class="tab-btn px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     <i class="fas fa-key mr-1.5"></i> API Management
                 </button>
+                <button onclick="switchTab('usage')" id="tab-btn-usage" class="tab-btn px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <i class="fas fa-chart-bar mr-1.5"></i> Usage
+                </button>
                 <button onclick="switchTab('help')" id="tab-btn-help" class="tab-btn px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     <i class="fas fa-question-circle mr-1.5"></i> Help
                 </button>
@@ -382,6 +385,19 @@
                         <p class="text-sm text-slate-600 dark:text-slate-400">Configure your API providers here. Keys are stored securely in your browser's local storage.</p>
                     </div>
                     <div id="providerSettingsList" class="grid gap-4"></div>
+                </div>
+
+                <div id="tab-content-usage" class="tab-content hidden space-y-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-lg font-semibold text-slate-800 dark:text-white">Token Usage</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Cumulative usage across all sessions, stored locally.</p>
+                        </div>
+                        <button onclick="resetTokenUsage()" class="px-3 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors">
+                            <i class="fas fa-trash-alt mr-1"></i> Reset
+                        </button>
+                    </div>
+                    <div id="usageTableWrap" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"></div>
                 </div>
 
                 <div id="tab-content-help" class="tab-content hidden space-y-6">
