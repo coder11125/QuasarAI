@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Quasar AI - Multi-provider AI chat client",
     "dependencies": {
-        "bcryptjs": "2.4.3",
+        "bcryptjs": "3.0.3",
         "jsonwebtoken": "9.0.3",
         "mongoose": "8.23.1"
     },
@@ -13,10 +13,9 @@
     },
     "devDependencies": {
         "@tailwindcss/cli": "^4.0.0",
-        "@types/bcryptjs": "^2.4.6",
         "@types/jsonwebtoken": "^9.0.0",
-        "@types/node": "^20.0.0",
-        "@vercel/node": "^3.0.0",
+        "@types/node": "^25.6.0",
+        "@vercel/node": "^5.7.15",
         "tailwindcss": "^4.0.0",
         "typescript": "^5.0.0"
     }
